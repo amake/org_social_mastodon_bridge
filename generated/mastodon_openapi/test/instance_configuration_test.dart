@@ -1,0 +1,51 @@
+import 'package:test/test.dart';
+import 'package:mastodon_openapi/mastodon_openapi.dart';
+
+// tests for InstanceConfiguration
+void main() {
+  final instance = InstanceConfigurationBuilder();
+  // TODO add properties to the builder and call build()
+
+  group(InstanceConfiguration, () {
+    // InstanceConfigurationAccounts accounts
+    test('to test the property `accounts`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationMediaAttachments mediaAttachments
+    test('to test the property `mediaAttachments`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationPolls polls
+    test('to test the property `polls`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationStatuses statuses
+    test('to test the property `statuses`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationTranslation translation
+    test('to test the property `translation`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationUrls urls
+    test('to test the property `urls`', () async {
+      // TODO
+    });
+
+    // Whether federation is limited to explicitly allowed domains.
+    // bool limitedFederation
+    test('to test the property `limitedFederation`', () async {
+      // TODO
+    });
+
+    // InstanceConfigurationTimelinesAccess timelinesAccess
+    test('to test the property `timelinesAccess`', () async {
+      // TODO
+    });
+  });
+}

@@ -1,0 +1,34 @@
+import 'package:test/test.dart';
+import 'package:mastodon_openapi/mastodon_openapi.dart';
+
+// tests for ModelList
+void main() {
+  final instance = ModelListBuilder();
+  // TODO add properties to the builder and call build()
+
+  group(ModelList, () {
+    // Whether members of the list should be removed from the “Home” feed.
+    // bool exclusive
+    test('to test the property `exclusive`', () async {
+      // TODO
+    });
+
+    // The ID of the list.
+    // String id
+    test('to test the property `id`', () async {
+      // TODO
+    });
+
+    // Which replies should be shown in the list.
+    // ListRepliesPolicyEnum repliesPolicy
+    test('to test the property `repliesPolicy`', () async {
+      // TODO
+    });
+
+    // The user-defined title of the list.
+    // String title
+    test('to test the property `title`', () async {
+      // TODO
+    });
+  });
+}

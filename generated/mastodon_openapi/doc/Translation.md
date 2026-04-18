@@ -1,0 +1,21 @@
+# mastodon_openapi.model.Translation
+
+## Load the model package
+```dart
+import 'package:mastodon_openapi/api.dart';
+```
+
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**content** | **String** | HTML-encoded translated content of the status. | 
+**detectedSourceLanguage** | **String** | The language of the source text, as auto-detected by the machine translation provider. | 
+**language** | **String** | The resulting language the text was translated into. | 
+**mediaAttachments** | [**BuiltList&lt;TranslationAttachment&gt;**](TranslationAttachment.md) | The translated media descriptions of the status. | 
+**provider** | **String** | The service that provided the machine translation. | 
+**spoilerText** | **String** | The translated spoiler warning of the status. | 
+**poll** | [**TranslationPoll**](TranslationPoll.md) |  | [optional] 
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+

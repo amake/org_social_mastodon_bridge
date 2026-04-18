@@ -1,0 +1,101 @@
+//
+// AUTO-GENERATED FILE, DO NOT MODIFY!
+//
+
+import 'dart:async';
+
+import 'package:built_value/json_object.dart';
+import 'package:built_value/serializer.dart';
+import 'package:dio/dio.dart';
+
+import 'package:mastodon_openapi/src/model/create_email_confirmations_request.dart';
+import 'package:mastodon_openapi/src/model/error.dart';
+import 'package:mastodon_openapi/src/model/validation_error.dart';
+
+class EmailsApi {
+  final Dio _dio;
+
+  final Serializers _serializers;
+
+  const EmailsApi(this._dio, this._serializers);
+
+  /// Resend confirmation email
+  /// Resend a new confirmation email. If an email is provided, updates the unconfirmed user&#39;s email before resending the confirmation email.  Version history:  3.4.0 - added
+  ///
+  /// Parameters:
+  /// * [createEmailConfirmationsRequest] - JSON request body parameters
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future]
+  /// Throws [DioException] if API call or serialization fails
+  /// Official Mastodon API documentation
+  /// Also see [Resend confirmation email Documentation](https://docs.joinmastodon.org/methods/emails/#confirmation)
+  Future<Response<void>> createEmailConfirmations({
+    CreateEmailConfirmationsRequest? createEmailConfirmationsRequest,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/v1/emails/confirmations';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{
+        ...?headers,
+      },
+      extra: <String, dynamic>{
+        'secure': <Map<String, String>>[
+          {
+            'type': 'oauth2',
+            'name': 'OAuth2',
+          },
+          {
+            'type': 'oauth2',
+            'name': 'OAuth2',
+          },
+        ],
+        ...?extra,
+      },
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      const _type = FullType(CreateEmailConfirmationsRequest);
+      _bodyData = createEmailConfirmationsRequest == null
+          ? null
+          : _serializers.serialize(createEmailConfirmationsRequest,
+              specifiedType: _type);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    return _response;
+  }
+}

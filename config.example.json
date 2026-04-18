@@ -1,0 +1,24 @@
+{
+  "source": {
+    "feed_url": "https://example.com/social.org"
+  },
+  "mastodon": {
+    "base_url": "https://mastodon.social",
+    "access_token": "REPLACE_ME",
+    "visibility": "public",
+    "language": "en"
+  },
+  "sync": {
+    "dry_run": false,
+    "max_posts_per_run": 20,
+    "include_link": false
+  },
+  "state": {
+    "type": "file",
+    "path": "state.json"
+  },
+  "lambda": {
+    "function_name": "org-social-mastodon-bridge",
+    "architecture": "arm64"
+  }
+}

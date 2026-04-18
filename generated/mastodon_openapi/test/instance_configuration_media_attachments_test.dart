@@ -1,0 +1,52 @@
+import 'package:test/test.dart';
+import 'package:mastodon_openapi/mastodon_openapi.dart';
+
+// tests for InstanceConfigurationMediaAttachments
+void main() {
+  final instance = InstanceConfigurationMediaAttachmentsBuilder();
+  // TODO add properties to the builder and call build()
+
+  group(InstanceConfigurationMediaAttachments, () {
+    // The maximum number of pixels (width times height) for image uploads.
+    // int imageMatrixLimit
+    test('to test the property `imageMatrixLimit`', () async {
+      // TODO
+    });
+
+    // The maximum size of any uploaded image, in bytes.
+    // int imageSizeLimit
+    test('to test the property `imageSizeLimit`', () async {
+      // TODO
+    });
+
+    // Contains MIME types that can be uploaded.
+    // BuiltList<String> supportedMimeTypes
+    test('to test the property `supportedMimeTypes`', () async {
+      // TODO
+    });
+
+    // The maximum frame rate for any uploaded video.
+    // int videoFrameRateLimit
+    test('to test the property `videoFrameRateLimit`', () async {
+      // TODO
+    });
+
+    // The maximum number of pixels (width times height) for video uploads.
+    // int videoMatrixLimit
+    test('to test the property `videoMatrixLimit`', () async {
+      // TODO
+    });
+
+    // The maximum size of any uploaded video, in bytes.
+    // int videoSizeLimit
+    test('to test the property `videoSizeLimit`', () async {
+      // TODO
+    });
+
+    // The maximum size of a description, in characters.
+    // int descriptionLimit
+    test('to test the property `descriptionLimit`', () async {
+      // TODO
+    });
+  });
+}
