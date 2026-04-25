@@ -32,6 +32,7 @@ The important sections are:
 
 - `make deps`
 - `make generate`
+- `make auth`
 - `make analyze`
 - `make test`
 - `make run`
@@ -42,6 +43,12 @@ The important sections are:
 `make run` executes one sync pass against `config.json`.
 `make build` packages that same config into the Lambda ZIP as root-level
 `config.json`.
+
+`make auth` performs the Mastodon OAuth flow interactively. It will register an
+application if needed, print an authorization URL, prompt for the returned
+code, and write `mastodon.access_token` back into `config.json`. It also stores
+`mastodon.client_id`, `mastodon.client_secret`, and `mastodon.app_name` for
+reuse.
 
 ## State And Idempotency
 

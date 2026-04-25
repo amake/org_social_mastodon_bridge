@@ -22,6 +22,11 @@ generate: ## Generate the Mastodon OpenAPI client
 	dart format generated/mastodon_openapi/lib/src/model >/dev/null
 	dart pub get
 
+.PHONY: auth
+auth: ## Obtain/update the Mastodon access token interactively
+auth:
+	dart run bin/auth_setup.dart $(config)
+
 .PHONY: test
 test: ## Run tests
 	dart test
