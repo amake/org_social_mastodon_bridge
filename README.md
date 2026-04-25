@@ -40,6 +40,8 @@ The important sections are:
 - `make invoke`
 
 `make run` executes one sync pass against `config.json`.
+`make build` packages that same config into the Lambda ZIP as root-level
+`config.json`.
 
 ## State And Idempotency
 
@@ -54,8 +56,13 @@ The Lambda deployment target is a ZIP package for the AWS OS-only runtime
 `provided.al2023`, using a root-level `bootstrap`.
 
 `make build` compiles `bin/bootstrap.dart` to a Linux executable and zips it as
-`dist/lambda.zip`. `make deploy` updates the configured Lambda function using
-the function name from `config.json`.
+`dist/lambda.zip`, including `config.json` inside the ZIP. `make deploy`
+updates the configured Lambda function using the function name from
+`config.json`.
+
+If you want to package a different config file, use `make build
+config=/path/to/secret-config.json`. It will still be stored in the ZIP as
+`config.json`.
 
 Requirements for deployment tooling:
 
