@@ -5,15 +5,27 @@ sealed class StateConfig {
   const StateConfig();
 
   factory StateConfig.fromJson(Map<String, Object?> json) {
-    final type = _requireString(json, 'type');
-    return switch (type) {
-      'file' => FileStateConfig(path: _requireString(json, 'path')),
-      's3' => S3StateConfig(
-        bucket: _requireString(json, 'bucket'),
-        key: _requireString(json, 'key'),
-        region: _requireString(json, 'region'),
+    return switch (json) {
+      {'type': 'file', 'path': String path} => FileStateConfig(
+        path: _requireNonEmptyString(path, 'state.path'),
       ),
-      _ => throw FormatException('Unsupported state.type "$type"'),
+      {
+        'type': 's3',
+        'bucket': String bucket,
+        'key': String key,
+        'region': String region,
+      } =>
+        S3StateConfig(
+          bucket: _requireNonEmptyString(bucket, 'state.bucket'),
+          key: _requireNonEmptyString(key, 'state.key'),
+          region: _requireNonEmptyString(region, 'state.region'),
+        ),
+      {'type': String type} => throw FormatException(
+        'Unsupported state.type "$type"',
+      ),
+      _ => throw const FormatException(
+        'Expected state config with required fields',
+      ),
     };
   }
 }
@@ -39,8 +51,14 @@ final class S3StateConfig extends StateConfig {
 final class SourceConfig {
   const SourceConfig({required this.feedUrl});
 
-  factory SourceConfig.fromJson(Map<String, Object?> json) =>
-      SourceConfig(feedUrl: Uri.parse(_requireString(json, 'feed_url')));
+  factory SourceConfig.fromJson(Map<String, Object?> json) => switch (json) {
+    {'feed_url': String feedUrl} => SourceConfig(
+      feedUrl: Uri.parse(_requireNonEmptyString(feedUrl, 'feed_url')),
+    ),
+    _ => throw const FormatException(
+      'Expected source.feed_url to be a non-empty string',
+    ),
+  };
 
   final Uri feedUrl;
 }
@@ -53,12 +71,24 @@ final class MastodonConfig {
     this.language,
   });
 
-  factory MastodonConfig.fromJson(Map<String, Object?> json) => MastodonConfig(
-    baseUrl: Uri.parse(_requireString(json, 'base_url')),
-    accessToken: _requireString(json, 'access_token'),
-    visibility: (json['visibility'] as String?) ?? 'public',
-    language: json['language'] as String?,
-  );
+  factory MastodonConfig.fromJson(Map<String, Object?> json) => switch (json) {
+    {'base_url': String baseUrl, 'access_token': String accessToken} =>
+      MastodonConfig(
+        baseUrl: Uri.parse(_requireNonEmptyString(baseUrl, 'base_url')),
+        accessToken: _requireNonEmptyString(accessToken, 'access_token'),
+        visibility: switch (json) {
+          {'visibility': String visibility} => visibility,
+          _ => 'public',
+        },
+        language: switch (json) {
+          {'language': String language} => language,
+          _ => null,
+        },
+      ),
+    _ => throw const FormatException(
+      'Expected mastodon.base_url and mastodon.access_token to be non-empty strings',
+    ),
+  };
 
   final Uri baseUrl;
   final String accessToken;
@@ -112,19 +142,33 @@ final class AppConfig {
     required this.lambda,
   });
 
-  factory AppConfig.fromJson(Map<String, Object?> json) => AppConfig(
-    source: SourceConfig.fromJson(_requireMap(json, 'source')),
-    mastodon: MastodonConfig.fromJson(_requireMap(json, 'mastodon')),
-    sync: SyncConfig.fromJson(
-      (json['sync'] as Map<Object?, Object?>? ?? const {})
-          .cast<String, Object?>(),
+  factory AppConfig.fromJson(Map<String, Object?> json) => switch (json) {
+    {
+      'source': Map<Object?, Object?> source,
+      'mastodon': Map<Object?, Object?> mastodon,
+      'state': Map<Object?, Object?> state,
+    } =>
+      AppConfig(
+        source: SourceConfig.fromJson(source.cast<String, Object?>()),
+        mastodon: MastodonConfig.fromJson(mastodon.cast<String, Object?>()),
+        sync: switch (json) {
+          {'sync': Map<Object?, Object?> sync} => SyncConfig.fromJson(
+            sync.cast<String, Object?>(),
+          ),
+          _ => const SyncConfig(),
+        },
+        state: StateConfig.fromJson(state.cast<String, Object?>()),
+        lambda: switch (json) {
+          {'lambda': Map<Object?, Object?> lambda} => LambdaConfig.fromJson(
+            lambda.cast<String, Object?>(),
+          ),
+          _ => const LambdaConfig(),
+        },
+      ),
+    _ => throw const FormatException(
+      'Expected config to contain source, mastodon, and state objects',
     ),
-    state: StateConfig.fromJson(_requireMap(json, 'state')),
-    lambda: LambdaConfig.fromJson(
-      (json['lambda'] as Map<Object?, Object?>? ?? const {})
-          .cast<String, Object?>(),
-    ),
-  );
+  };
 
   static Future<AppConfig> loadFile(String path) async {
     final file = File(path);
@@ -132,10 +176,16 @@ final class AppConfig {
       throw FileSystemException('Config file not found', path);
     }
     final decoded = json.decode(await file.readAsString());
-    if (decoded is! Map<Object?, Object?>) {
-      throw const FormatException('Config root must be a JSON object');
+    if (decoded case {
+      'source': Map<Object?, Object?> _,
+      'mastodon': Map<Object?, Object?> _,
+      'state': Map<Object?, Object?> _,
+    }) {
+      return AppConfig.fromJson((decoded as Map<Object?, Object?>).cast());
     }
-    return AppConfig.fromJson(decoded.cast<String, Object?>());
+    throw const FormatException(
+      'Config root must be an object containing source, mastodon, and state',
+    );
   }
 
   final SourceConfig source;
@@ -159,17 +209,8 @@ final class AppConfig {
   );
 }
 
-Map<String, Object?> _requireMap(Map<String, Object?> json, String key) {
-  final value = json[key];
-  if (value is Map<Object?, Object?>) {
-    return value.cast<String, Object?>();
-  }
-  throw FormatException('Expected "$key" to be an object');
-}
-
-String _requireString(Map<String, Object?> json, String key) {
-  final value = json[key];
-  if (value is String && value.isNotEmpty) {
+String _requireNonEmptyString(String value, String key) {
+  if (value.isNotEmpty) {
     return value;
   }
   throw FormatException('Expected non-empty string "$key"');
