@@ -39,10 +39,6 @@ class OrgSocialRenderer {
     OrgSocialPoll? poll;
 
     for (final node in section.content?.children ?? const <OrgNode>[]) {
-      if (node case final OrgDrawer drawer when drawer.isPropertyDrawer) {
-        continue;
-      }
-
       if (node is OrgMeta && node.key.toLowerCase() == '#+caption:') {
         collector.pendingCaption = node.value?.toPlainText().trim();
         continue;
@@ -89,7 +85,7 @@ class OrgSocialRenderer {
     return switch (node) {
       OrgParagraph(:final body) => _renderInline(body, collector).trim(),
       OrgList() => _renderList(node, collector),
-      OrgDrawer(:final body) => _renderBlock(body, collector),
+      OrgDrawer() => '',
       OrgContent(:final children) => children
           .map((child) => _renderBlock(child, collector))
           .where((block) => block.trim().isNotEmpty)

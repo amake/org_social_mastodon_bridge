@@ -251,4 +251,29 @@ Hello world
     expect(posts.single.tags, ['emacs', 'org-mode']);
     expect(posts.single.mood, 'Happy');
   });
+
+  test('does not include drawers in post text', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:ID: 123
+:END:
+:LOGBOOK:
+- Note
+:END:
+Main content
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.text, 'Main content');
+    expect(posts.single.text, isNot(contains(':PROPERTIES:')));
+    expect(posts.single.text, isNot(contains(':ID:')));
+    expect(posts.single.text, isNot(contains(':LOGBOOK:')));
+  });
 }
