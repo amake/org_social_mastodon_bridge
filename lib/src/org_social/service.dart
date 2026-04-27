@@ -101,6 +101,7 @@ class OrgSocialService {
       headlineId: headlineId,
       language: _firstProperty(section, ':LANG:'),
       contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),
+      visibility: _firstProperty(section, ':VISIBILITY:'),
       canonicalUrl: null,
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,

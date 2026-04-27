@@ -33,6 +33,7 @@ final class OrgSocialPost {
     this.headlineId,
     this.language,
     this.contentWarning,
+    this.visibility,
     this.canonicalUrl,
     this.mediaCandidates = const [],
     this.poll,
@@ -45,6 +46,7 @@ final class OrgSocialPost {
   final String? headlineId;
   final String? language;
   final String? contentWarning;
+  final String? visibility;
   final Uri? canonicalUrl;
   final List<OrgSocialMediaCandidate> mediaCandidates;
   final OrgSocialPoll? poll;

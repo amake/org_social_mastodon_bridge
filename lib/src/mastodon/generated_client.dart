@@ -97,6 +97,18 @@ class GeneratedMastodonClient implements MastodonClient {
     return _parsePostResult(sourceId, response.data);
   }
 
+  generated.StatusVisibilityEnum _visibilityFor(OrgSocialPost post) {
+    final visibility = post.visibility?.toLowerCase();
+    if (visibility == null) {
+      return _visibility;
+    }
+    return switch (visibility) {
+      'public' => generated.StatusVisibilityEnum.public,
+      'mention' => generated.StatusVisibilityEnum.direct,
+      _ => _visibility,
+    };
+  }
+
   generated.CreateStatusRequest _buildPollRequest(
     OrgSocialPost post,
     int expiresIn,
@@ -114,7 +126,7 @@ class GeneratedMastodonClient implements MastodonClient {
           builder
             ..poll = pollParams.toBuilder()
             ..status = post.text
-            ..visibility = _visibility
+            ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
     );
@@ -139,7 +151,7 @@ class GeneratedMastodonClient implements MastodonClient {
       (builder) =>
           builder
             ..status = statusText
-            ..visibility = _visibility
+            ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
     );
@@ -171,7 +183,7 @@ class GeneratedMastodonClient implements MastodonClient {
           builder
             ..mediaIds.addAll(mediaIds)
             ..status = statusText
-            ..visibility = _visibility
+            ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
     );

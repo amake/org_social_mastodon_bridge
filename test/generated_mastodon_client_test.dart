@@ -217,6 +217,48 @@ void main() {
     expect(interceptor.uploadedDescriptions.single, 'A mysterious image');
     expect(interceptor.uploadedContentTypes.single, 'image/png');
   });
+
+  test('respects per-post visibility', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+          'visibility': 'public',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(
+        BaseOptions(baseUrl: 'https://mastodon.example'),
+      )..interceptors.add(interceptor),
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: 'mention',
+        text: 'private',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: 'mention',
+        visibility: 'mention',
+      ),
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: 'public-override',
+        text: 'public',
+        publishedAt: DateTime.utc(2025, 4, 28, 12),
+        headline: 'public',
+        visibility: 'public',
+      ),
+    );
+
+    expect(interceptor.statusBodies[0]['visibility'], 'direct');
+    expect(interceptor.statusBodies[1]['visibility'], 'public');
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {

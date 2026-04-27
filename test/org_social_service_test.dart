@@ -209,4 +209,24 @@ https://example.com/dog.png
     // Ensure #+CAPTION: is not in the body text
     expect(posts.single.text, isNot(contains('#+CAPTION:')));
   });
+
+  test('extracts :VISIBILITY: property', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:VISIBILITY: mention
+:END:
+
+Private message
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.visibility, 'mention');
+  });
 }
