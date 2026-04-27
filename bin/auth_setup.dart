@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:built_collection/built_collection.dart';
 import 'package:dio/dio.dart';
 import 'package:mastodon_openapi/mastodon_openapi.dart' as generated;
+import 'package:org_social_mastodon_bridge/org_social_mastodon_bridge.dart';
 
 const _redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
 const _scopes = 'write:statuses profile';
 const _defaultAppName = 'org_social_mastodon_bridge';
 
 Future<void> main(List<String> arguments) async {
+  logger.debug('Auth CLI arguments: $arguments');
   final configPath = arguments.firstWhere(
     (argument) => !argument.startsWith('--'),
     orElse: () =>
@@ -62,6 +64,7 @@ Future<void> main(List<String> arguments) async {
         : _optionalString(mastodon, 'client_secret');
 
     if (clientId == null || clientSecret == null) {
+      logger.info('Registering Mastodon application on $baseUrl');
       stdout.writeln('Registering Mastodon application on $baseUrl');
       final response = await client.getAppsApi().createApp(
         createAppRequest: generated.CreateAppRequest(
@@ -82,6 +85,7 @@ Future<void> main(List<String> arguments) async {
       mastodon['client_secret'] = clientSecret;
       mastodon['app_name'] = appName;
       await _writeConfig(configFile, root);
+      logger.debug('Stored client_id and client_secret in $configPath');
     }
 
     final authorizationUri = baseUrl
@@ -124,6 +128,7 @@ Future<void> main(List<String> arguments) async {
     mastodon['app_name'] = appName;
     await _writeConfig(configFile, root);
 
+    logger.info('Updated $configPath with Mastodon credentials');
     stdout.writeln('Updated $configPath with Mastodon credentials.');
     return;
   }

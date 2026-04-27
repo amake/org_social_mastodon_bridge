@@ -6,6 +6,7 @@ import 'package:aws_signature_v4/aws_signature_v4.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/config.dart';
+import '../logging/logging.dart';
 
 final class SyncRecord {
   const SyncRecord({
@@ -79,8 +80,12 @@ final class FileStateStore implements StateStore {
   Future<SyncState> load() async {
     final file = File(path);
     if (!await file.exists()) {
+      logger.debug(
+        'No local state file found at $path; starting with empty state',
+      );
       return SyncState.empty();
     }
+    logger.debug('Loading local state from $path');
     final decoded = json.decode(await file.readAsString());
     if (decoded is! Map<Object?, Object?>) {
       throw const FormatException('State root must be a JSON object');
@@ -92,6 +97,9 @@ final class FileStateStore implements StateStore {
   Future<void> save(SyncState state) async {
     final file = File(path);
     await file.parent.create(recursive: true);
+    logger.debug(
+      'Saving local state to $path (${state.records.length} records)',
+    );
     await file.writeAsString(
       const JsonEncoder.withIndent('  ').convert(state.toJson()),
     );
@@ -109,9 +117,14 @@ final class S3StateStore implements StateStore {
 
   @override
   Future<SyncState> load() async {
+    logger.debug('Loading state from s3://${config.bucket}/${config.key}');
     final signed = await _signedRequest(AWSHttpMethod.get);
     final response = await _httpClient.get(signed.uri, headers: signed.headers);
     if (response.statusCode == 404) {
+      logger.debug(
+        'No S3 state object found at s3://${config.bucket}/${config.key}; '
+        'starting with empty state',
+      );
       return SyncState.empty();
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -129,6 +142,10 @@ final class S3StateStore implements StateStore {
 
   @override
   Future<void> save(SyncState state) async {
+    logger.debug(
+      'Saving state to s3://${config.bucket}/${config.key} '
+      '(${state.records.length} records)',
+    );
     final body = utf8.encode(
       const JsonEncoder.withIndent('  ').convert(state.toJson()),
     );

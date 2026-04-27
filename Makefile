@@ -2,6 +2,7 @@ lambda_arch ?= arm64
 config ?= config.json
 payload := dist/lambda.zip
 bootstrap := dist/bootstrap
+run_log_level ?= debug
 
 .PHONY: help
 help: ## Show this help text
@@ -37,7 +38,8 @@ analyze: ## Run static analysis
 
 .PHONY: run
 run: ## Run one local sync pass
-	dart run bin/org_social_mastodon_bridge.dart $(config)
+	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
+		dart run bin/org_social_mastodon_bridge.dart $(config)
 
 dist:
 	mkdir -p $@

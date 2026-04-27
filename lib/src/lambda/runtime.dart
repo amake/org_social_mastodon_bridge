@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../logging/logging.dart';
 import '../runner/bridge_runner.dart';
 
 class LambdaRuntime {
@@ -13,16 +14,23 @@ class LambdaRuntime {
     if (runtimeApi == null || runtimeApi.isEmpty) {
       throw StateError('AWS_LAMBDA_RUNTIME_API is not set');
     }
+    logger.info('Starting Lambda runtime loop against $runtimeApi');
 
     final client = HttpClient();
     try {
       while (true) {
         final invocation = await _nextInvocation(client, runtimeApi);
+        logger.info('Received Lambda invocation ${invocation.requestId}');
         try {
           final event = _decodeJson(invocation.body);
+          logger.debug('Invocation event: ${json.encode(event)}');
           final result = await _runner.run(
             configPath: _configPathFromEvent(event),
             dryRunOverride: _dryRunFromEvent(event),
+          );
+          logger.info(
+            'Invocation ${invocation.requestId} succeeded '
+            '(seen=${result.seenPosts} posted=${result.postedPosts})',
           );
           await _postResponse(client, runtimeApi, invocation.requestId, {
             'seen_posts': result.seenPosts,
@@ -31,6 +39,11 @@ class LambdaRuntime {
             'dry_run': result.dryRun,
           });
         } catch (error, stackTrace) {
+          logger.error(
+            'Invocation ${invocation.requestId} failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
           await _postError(
             client,
             runtimeApi,
@@ -58,6 +71,7 @@ class LambdaRuntime {
       throw StateError('Lambda runtime API did not return a request id');
     }
     final body = await utf8.decoder.bind(response).join();
+    logger.debug('Fetched next invocation payload (${body.length} bytes)');
     return _Invocation(requestId: requestId, body: body);
   }
 

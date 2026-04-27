@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:org_parser/org_parser.dart';
 
 import '../config/config.dart';
+import '../logging/logging.dart';
 import 'post.dart';
 
 class OrgSocialService {
@@ -15,12 +16,17 @@ class OrgSocialService {
   final http.Client _httpClient;
 
   Future<List<OrgSocialPost>> fetchPosts(SourceConfig config) async {
+    logger.debug('Fetching Org Social feed from ${config.feedUrl}');
     final response = await _httpClient.get(config.feedUrl);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError(
         'Failed to fetch ${config.feedUrl}: HTTP ${response.statusCode}',
       );
     }
+    logger.debug(
+      'Fetched ${response.body.length} bytes from ${config.feedUrl} '
+      '(HTTP ${response.statusCode})',
+    );
     return parsePosts(feedUrl: config.feedUrl, content: response.body);
   }
 
@@ -28,6 +34,7 @@ class OrgSocialService {
     required Uri feedUrl,
     required String content,
   }) {
+    logger.debug('Parsing Org Social feed from $feedUrl');
     final document = OrgDocument.parse(content);
     final postsSection = document.sections.firstWhere(
       (section) => section.headline.rawTitle?.trim().toLowerCase() == 'posts',
@@ -59,6 +66,7 @@ class OrgSocialService {
         .toList(growable: false);
 
     posts.sort((a, b) => a.publishedAt.compareTo(b.publishedAt));
+    logger.debug('Parsed ${posts.length} post candidates from $feedUrl');
     return posts;
   }
 

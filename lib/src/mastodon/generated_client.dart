@@ -4,6 +4,7 @@ import 'package:mastodon_openapi/mastodon_openapi.dart' as generated;
 import 'package:one_of/one_of.dart';
 
 import '../config/config.dart';
+import '../logging/logging.dart';
 import '../org_social/post.dart';
 import 'client.dart';
 
@@ -19,6 +20,7 @@ class GeneratedMastodonClient implements MastodonClient {
           ),
         ),
       ) {
+    logger.debug('Configured Mastodon client for ${config.baseUrl}');
     _api.setOAuthToken('OAuth2', config.accessToken);
   }
 
@@ -39,6 +41,7 @@ class GeneratedMastodonClient implements MastodonClient {
 
   @override
   Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
+    logger.debug('Creating Mastodon status for ${post.sourceId}');
     final textStatus = generated.TextStatus(
       (builder) => builder
         ..status = post.text
@@ -66,12 +69,14 @@ class GeneratedMastodonClient implements MastodonClient {
     }
     final value = payload.oneOf.value;
     if (value is generated.Status) {
+      logger.debug('Received immediate Mastodon status ${value.id}');
       return MastodonPostResult(
         statusId: value.id,
         url: value.url == null ? null : Uri.parse(value.url!),
       );
     }
     if (value is generated.ScheduledStatus) {
+      logger.debug('Received scheduled Mastodon status ${value.id}');
       return MastodonPostResult(statusId: value.id, url: null);
     }
     throw StateError('Unexpected Mastodon response type ${value.runtimeType}');
@@ -79,6 +84,7 @@ class GeneratedMastodonClient implements MastodonClient {
 
   @override
   Future<void> verifyCredentials() async {
+    logger.debug('Calling Mastodon verify_credentials');
     final response = await _api.getAccountsApi().getAccountsVerifyCredentials();
     if (response.data == null) {
       throw StateError('Mastodon credential verification returned no account');

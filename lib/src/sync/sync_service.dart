@@ -1,4 +1,5 @@
 import '../config/config.dart';
+import '../logging/logging.dart';
 import '../mastodon/client.dart';
 import '../org_social/post.dart';
 import '../org_social/service.dart';
@@ -30,14 +31,20 @@ class SyncService {
   final StateStore stateStore;
 
   Future<SyncResult> run(AppConfig config) async {
+    logger.info('Starting sync run');
     final existingState = await stateStore.load();
     final posts = await feedService.fetchPosts(config.source);
     final unseen = posts
         .where((post) => !existingState.containsSourceId(post.sourceId))
         .take(config.sync.maxPostsPerRun)
         .toList(growable: false);
+    logger.info(
+      'Loaded ${posts.length} posts, found ${unseen.length} unseen '
+      '(dry_run=${config.sync.dryRun})',
+    );
 
     if (!config.sync.dryRun) {
+      logger.debug('Verifying Mastodon credentials');
       await mastodonClient.verifyCredentials();
     }
 
@@ -46,8 +53,10 @@ class SyncService {
 
     for (final post in unseen) {
       if (config.sync.dryRun) {
+        logger.info('Dry run: would post ${post.sourceId} (${post.headline})');
         continue;
       }
+      logger.info('Posting ${post.sourceId} (${post.headline})');
       final result = await mastodonClient.postStatus(
         _withOptionalLink(post, config.sync.includeLink),
       );
@@ -61,8 +70,15 @@ class SyncService {
       );
       await stateStore.save(state);
       postedCount += 1;
+      logger.info(
+        'Posted ${post.sourceId} as Mastodon status ${result.statusId}',
+      );
     }
 
+    logger.info(
+      'Sync finished: seen=${posts.length} unseen=${unseen.length} '
+      'posted=$postedCount dry_run=${config.sync.dryRun}',
+    );
     return SyncResult(
       seenPosts: posts.length,
       newPosts: unseen.length,

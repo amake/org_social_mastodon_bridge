@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 
 import '../config/config.dart';
+import '../logging/logging.dart';
 import '../mastodon/generated_client.dart';
 import '../org_social/service.dart';
 import '../state/state_store.dart';
@@ -16,8 +17,10 @@ class BridgeRunner {
     required String configPath,
     bool? dryRunOverride,
   }) async {
+    logger.debug('Loading config from $configPath');
     var config = await AppConfig.loadFile(configPath);
     if (dryRunOverride != null) {
+      logger.debug('Overriding dry_run to $dryRunOverride');
       config = config.copyWith(
         sync: config.sync.copyWith(dryRun: dryRunOverride),
       );

@@ -43,12 +43,34 @@ The important sections are:
 `make run` executes one sync pass against `config.json`.
 `make build` packages that same config into the Lambda ZIP as root-level
 `config.json`.
+`make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for
+verbose local runs.
 
 `make auth` performs the Mastodon OAuth flow interactively. It will register an
 application if needed, print an authorization URL, prompt for the returned
 code, and write `mastodon.access_token` back into `config.json`. It also stores
 `mastodon.client_id`, `mastodon.client_secret`, and `mastodon.app_name` for
 reuse.
+
+## Logging
+
+Logs are written to stderr.
+
+Supported log levels:
+
+- `debug`
+- `info`
+- `warning`
+- `error`
+
+Set the level with `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL`. If that is unset,
+the code also falls back to `LOG_LEVEL`. The default is `info`.
+
+Examples:
+
+- `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug dart run bin/org_social_mastodon_bridge.dart`
+- `make run`
+- `make run run_log_level=info`
 
 ## State And Idempotency
 
