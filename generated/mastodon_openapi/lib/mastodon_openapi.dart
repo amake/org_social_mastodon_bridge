@@ -162,7 +162,6 @@ export 'package:mastodon_openapi/src/model/merged_response.dart';
 export 'package:mastodon_openapi/src/model/meta_details.dart';
 export 'package:mastodon_openapi/src/model/model_list.dart';
 export 'package:mastodon_openapi/src/model/muted_account.dart';
-export 'package:mastodon_openapi/src/model/muted_account_moved.dart';
 export 'package:mastodon_openapi/src/model/notification.dart';
 export 'package:mastodon_openapi/src/model/notification_group.dart';
 export 'package:mastodon_openapi/src/model/notification_policy.dart';

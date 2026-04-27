@@ -125,7 +125,6 @@ import 'package:mastodon_openapi/src/model/merged_response.dart';
 import 'package:mastodon_openapi/src/model/meta_details.dart';
 import 'package:mastodon_openapi/src/model/model_list.dart';
 import 'package:mastodon_openapi/src/model/muted_account.dart';
-import 'package:mastodon_openapi/src/model/muted_account_moved.dart';
 import 'package:mastodon_openapi/src/model/notification.dart';
 import 'package:mastodon_openapi/src/model/notification_group.dart';
 import 'package:mastodon_openapi/src/model/notification_policy.dart';
@@ -337,7 +336,6 @@ part 'serializers.g.dart';
   MetaDetails,
   ModelList,
   MutedAccount,
-  MutedAccountMoved,
   Notification,
   NotificationGroup,
   NotificationPolicy,
@@ -435,6 +433,10 @@ part 'serializers.g.dart';
   WebPushSubscriptionAlerts,
 ])
 Serializers serializers = (_$serializers.toBuilder()
+      ..addBuilderFactory(
+        const FullType(BuiltList, [FullType(MutedAccount)]),
+        () => ListBuilder<MutedAccount>(),
+      )
       ..addBuilderFactory(
         const FullType(BuiltList, [FullType(Status)]),
         () => ListBuilder<Status>(),

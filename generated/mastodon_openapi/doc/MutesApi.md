@@ -13,7 +13,7 @@ Method | HTTP request | Description
 
 
 # **getMutes**
-> BuiltList<Account> getMutes(limit, maxId, sinceId)
+> BuiltList<MutedAccount> getMutes(limit, maxId, sinceId)
 
 View muted accounts
 
@@ -50,7 +50,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**BuiltList&lt;Account&gt;**](Account.md)
+[**BuiltList&lt;MutedAccount&gt;**](MutedAccount.md)
 
 ### Authorization
 

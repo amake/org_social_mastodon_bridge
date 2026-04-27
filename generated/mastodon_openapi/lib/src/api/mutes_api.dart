@@ -10,8 +10,8 @@ import 'package:dio/dio.dart';
 
 import 'package:built_collection/built_collection.dart';
 import 'package:mastodon_openapi/src/api_util.dart';
-import 'package:mastodon_openapi/src/model/account.dart';
 import 'package:mastodon_openapi/src/model/error.dart';
+import 'package:mastodon_openapi/src/model/muted_account.dart';
 import 'package:mastodon_openapi/src/model/validation_error.dart';
 
 class MutesApi {
@@ -35,11 +35,11 @@ class MutesApi {
   /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
   /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
   ///
-  /// Returns a [Future] containing a [Response] with a [BuiltList<Account>] as data
+  /// Returns a [Future] containing a [Response] with a [BuiltList<MutedAccount>] as data
   /// Throws [DioException] if API call or serialization fails
   /// Official Mastodon API documentation
   /// Also see [View muted accounts Documentation](https://docs.joinmastodon.org/methods/mutes/#get)
-  Future<Response<BuiltList<Account>>> getMutes({
+  Future<Response<BuiltList<MutedAccount>>> getMutes({
     int? limit = 40,
     String? maxId,
     String? sinceId,
@@ -93,7 +93,7 @@ class MutesApi {
       onReceiveProgress: onReceiveProgress,
     );
 
-    BuiltList<Account>? _responseData;
+    BuiltList<MutedAccount>? _responseData;
 
     try {
       final rawResponse = _response.data;
@@ -101,8 +101,9 @@ class MutesApi {
           ? null
           : _serializers.deserialize(
               rawResponse,
-              specifiedType: const FullType(BuiltList, [FullType(Account)]),
-            ) as BuiltList<Account>;
+              specifiedType:
+                  const FullType(BuiltList, [FullType(MutedAccount)]),
+            ) as BuiltList<MutedAccount>;
     } catch (error, stackTrace) {
       throw DioException(
         requestOptions: _response.requestOptions,
@@ -113,7 +114,7 @@ class MutesApi {
       );
     }
 
-    return Response<BuiltList<Account>>(
+    return Response<BuiltList<MutedAccount>>(
       data: _responseData,
       headers: _response.headers,
       isRedirect: _response.isRedirect,

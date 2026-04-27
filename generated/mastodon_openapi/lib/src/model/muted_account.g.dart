@@ -58,7 +58,7 @@ class _$MutedAccount extends MutedAccount {
   @override
   final bool? memorial;
   @override
-  final MutedAccountMoved? moved;
+  final Account? moved;
   @override
   final DateTime? muteExpiresAt;
   @override
@@ -353,10 +353,9 @@ class MutedAccountBuilder
   bool? get memorial => _$this._memorial;
   set memorial(bool? memorial) => _$this._memorial = memorial;
 
-  MutedAccountMovedBuilder? _moved;
-  MutedAccountMovedBuilder get moved =>
-      _$this._moved ??= MutedAccountMovedBuilder();
-  set moved(MutedAccountMovedBuilder? moved) => _$this._moved = moved;
+  AccountBuilder? _moved;
+  AccountBuilder get moved => _$this._moved ??= AccountBuilder();
+  set moved(AccountBuilder? moved) => _$this._moved = moved;
 
   DateTime? _muteExpiresAt;
   DateTime? get muteExpiresAt => _$this._muteExpiresAt;

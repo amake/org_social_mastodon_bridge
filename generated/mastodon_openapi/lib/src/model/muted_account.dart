@@ -7,7 +7,7 @@ import 'package:mastodon_openapi/src/model/custom_emoji.dart';
 import 'package:mastodon_openapi/src/model/field.dart';
 import 'package:mastodon_openapi/src/model/date.dart';
 import 'package:built_collection/built_collection.dart';
-import 'package:mastodon_openapi/src/model/muted_account_moved.dart';
+import 'package:mastodon_openapi/src/model/account.dart';
 import 'package:mastodon_openapi/src/model/account_role.dart';
 import 'package:built_value/built_value.dart';
 import 'package:built_value/serializer.dart';
@@ -155,7 +155,7 @@ abstract class MutedAccount
   bool? get memorial;
 
   @BuiltValueField(wireName: r'moved')
-  MutedAccountMoved? get moved;
+  Account? get moved;
 
   /// When a timed mute will expire, if applicable.
   @BuiltValueField(wireName: r'mute_expires_at')
@@ -353,7 +353,7 @@ class _$MutedAccountSerializer implements PrimitiveSerializer<MutedAccount> {
       yield r'moved';
       yield serializers.serialize(
         object.moved,
-        specifiedType: const FullType.nullable(MutedAccountMoved),
+        specifiedType: const FullType.nullable(Account),
       );
     }
     if (object.muteExpiresAt != null) {
@@ -622,8 +622,8 @@ class _$MutedAccountSerializer implements PrimitiveSerializer<MutedAccount> {
         case r'moved':
           final valueDes = serializers.deserialize(
             value,
-            specifiedType: const FullType.nullable(MutedAccountMoved),
-          ) as MutedAccountMoved?;
+            specifiedType: const FullType.nullable(Account),
+          ) as Account?;
           if (valueDes == null) continue;
           result.moved.replace(valueDes);
           break;
