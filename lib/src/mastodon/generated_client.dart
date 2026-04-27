@@ -125,7 +125,7 @@ class GeneratedMastodonClient implements MastodonClient {
       (builder) =>
           builder
             ..poll = pollParams.toBuilder()
-            ..status = post.text
+            ..status = _buildFinalStatusText(post)
             ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
@@ -145,12 +145,10 @@ class GeneratedMastodonClient implements MastodonClient {
     OrgSocialPost post, {
     bool appendPollOptions = false,
   }) {
-    final statusText =
-        appendPollOptions ? _appendPollOptions(post.text, post.poll!) : post.text;
     final textStatus = generated.TextStatus(
       (builder) =>
           builder
-            ..status = statusText
+            ..status = _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
             ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
@@ -176,13 +174,11 @@ class GeneratedMastodonClient implements MastodonClient {
       final uploaded = await _uploadMedia(candidate);
       mediaIds.add(uploaded.id);
     }
-    final statusText =
-        appendPollOptions ? _appendPollOptions(post.text, post.poll!) : post.text;
     final mediaStatus = generated.MediaStatus(
       (builder) =>
           builder
             ..mediaIds.addAll(mediaIds)
-            ..status = statusText
+            ..status = _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
             ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
@@ -197,9 +193,25 @@ class GeneratedMastodonClient implements MastodonClient {
     );
   }
 
-  String _appendPollOptions(String text, OrgSocialPoll poll) {
-    final optionsText = poll.options.map((o) => '- [ ] $o').join('\n');
-    return text.isEmpty ? optionsText : '$text\n\n$optionsText';
+  String _buildFinalStatusText(OrgSocialPost post, {bool appendPollOptions = false}) {
+    final buffer = StringBuffer(post.text);
+
+    if (appendPollOptions && post.poll != null) {
+      if (buffer.isNotEmpty) buffer.write('\n\n');
+      buffer.write(post.poll!.options.map((o) => '- [ ] $o').join('\n'));
+    }
+
+    if (post.mood != null && post.mood!.isNotEmpty) {
+      if (buffer.isNotEmpty) buffer.write('\n\n');
+      buffer.write('Mood: ${post.mood}');
+    }
+
+    if (post.tags.isNotEmpty) {
+      if (buffer.isNotEmpty) buffer.write('\n\n');
+      buffer.write(post.tags.map((t) => '#$t').join(' '));
+    }
+
+    return buffer.toString();
   }
 
   MastodonPostResult _parsePostResult(

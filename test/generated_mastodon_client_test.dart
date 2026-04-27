@@ -259,6 +259,41 @@ void main() {
     expect(interceptor.statusBodies[0]['visibility'], 'direct');
     expect(interceptor.statusBodies[1]['visibility'], 'public');
   });
+
+  test('appends tags and mood to status text', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(
+        BaseOptions(baseUrl: 'https://mastodon.example'),
+      )..interceptors.add(interceptor),
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: 'tags-mood',
+        text: 'Content',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: 'tags-mood',
+        tags: ['tag1', 'tag2'],
+        mood: 'Excited',
+      ),
+    );
+
+    final statusText = interceptor.statusBodies.single['status'];
+    expect(statusText, contains('Content'));
+    expect(statusText, contains('Mood: Excited'));
+    expect(statusText, contains('#tag1 #tag2'));
+    expect(statusText, endsWith('#tag1 #tag2'));
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {

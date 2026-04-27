@@ -102,6 +102,8 @@ class OrgSocialService {
       language: _firstProperty(section, ':LANG:'),
       contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),
       visibility: _firstProperty(section, ':VISIBILITY:'),
+      tags: _firstProperty(section, ':TAGS:')?.split(RegExp(r'\s+')) ?? const [],
+      mood: _firstProperty(section, ':MOOD:'),
       canonicalUrl: null,
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,

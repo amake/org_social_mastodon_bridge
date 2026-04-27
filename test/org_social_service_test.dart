@@ -229,4 +229,26 @@ Private message
 
     expect(posts.single.visibility, 'mention');
   });
+
+  test('extracts :TAGS: and :MOOD: properties', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:TAGS: emacs org-mode
+:MOOD: Happy
+:END:
+
+Hello world
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.tags, ['emacs', 'org-mode']);
+    expect(posts.single.mood, 'Happy');
+  });
 }
