@@ -180,4 +180,33 @@ What is your favorite color?
     expect(post.poll!.options, ['Red', 'Blue', 'Green']);
     expect(post.text, 'What is your favorite color?');
   });
+
+  test('extracts alt text from #+CAPTION: and prefers it over link description', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+#+CAPTION: A majestic cat
+[[https://example.com/cat.jpg][cat]]
+
+#+CAPTION: A playful dog
+https://example.com/dog.png
+
+[[https://example.com/bird.gif][A singing bird]]
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    final candidates = posts.single.mediaCandidates;
+    expect(candidates, hasLength(3));
+    expect(candidates[0].altText, 'A majestic cat');
+    expect(candidates[1].altText, 'A playful dog');
+    expect(candidates[2].altText, 'A singing bird');
+    // Ensure #+CAPTION: is not in the body text
+    expect(posts.single.text, isNot(contains('#+CAPTION:')));
+  });
 }

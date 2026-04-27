@@ -43,15 +43,22 @@ class OrgSocialRenderer {
         continue;
       }
 
+      if (node is OrgMeta && node.key.toLowerCase() == '#+caption:') {
+        collector.pendingCaption = node.value?.toPlainText().trim();
+        continue;
+      }
+
       if (pollEndsAt != null && poll == null && node is OrgList) {
         final options = _extractPollOptions(node, collector);
         if (options != null && options.length >= 2) {
           poll = OrgSocialPoll(endsAt: pollEndsAt, options: options);
+          collector.pendingCaption = null;
           continue;
         }
       }
 
       final rendered = _renderBlock(node, collector).trim();
+      collector.pendingCaption = null;
       if (rendered.isNotEmpty) {
         blocks.add(rendered);
       }
@@ -87,6 +94,7 @@ class OrgSocialRenderer {
           .map((child) => _renderBlock(child, collector))
           .where((block) => block.trim().isNotEmpty)
           .join('\n\n'),
+      OrgMeta() => '',
       _ => node.toPlainText().trim(),
     };
   }
@@ -142,8 +150,12 @@ class OrgSocialRenderer {
     required String? description,
     required _MediaCollector collector,
   }) {
-    collector.maybeAdd(location, _classifyMedia(location));
     final trimmedDescription = description?.trim();
+    collector.maybeAdd(
+      location,
+      _classifyMedia(location),
+      altText: trimmedDescription,
+    );
     if (trimmedDescription == null || trimmedDescription.isEmpty) {
       return location;
     }
@@ -190,11 +202,12 @@ class OrgSocialRenderer {
 final class _MediaCollector {
   final _seen = <String>{};
   final _candidates = <OrgSocialMediaCandidate>[];
+  String? pendingCaption;
 
   List<OrgSocialMediaCandidate> get candidates =>
       List.unmodifiable(_candidates);
 
-  void maybeAdd(String location, OrgSocialMediaKind? kind) {
+  void maybeAdd(String location, OrgSocialMediaKind? kind, {String? altText}) {
     if (kind == null || !_seen.add(location)) {
       return;
     }
@@ -202,6 +215,12 @@ final class _MediaCollector {
     if (url == null) {
       return;
     }
-    _candidates.add(OrgSocialMediaCandidate(url: url, kind: kind));
+    _candidates.add(
+      OrgSocialMediaCandidate(
+        url: url,
+        kind: kind,
+        altText: pendingCaption ?? altText,
+      ),
+    );
   }
 }

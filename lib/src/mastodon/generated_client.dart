@@ -267,10 +267,11 @@ class GeneratedMastodonClient implements MastodonClient {
     );
     logger.debug(
       'Uploading ${candidate.kind.name} attachment ${candidate.url} as $filename '
-      '(${response.bodyBytes.length} bytes)',
+      '(${response.bodyBytes.length} bytes), altText=${candidate.altText}',
     );
     final uploadResponse = await _api.getMediaApi().createMediaV2(
       file: multipartFile,
+      description: candidate.altText,
     );
     final uploaded = uploadResponse.data;
     if (uploaded == null) {
@@ -285,10 +286,40 @@ class GeneratedMastodonClient implements MastodonClient {
   }
 
   DioMediaType? _contentTypeFor(http.Response response, String filename) {
-    final contentType = response.headers['content-type'];
-    if (contentType != null && contentType.isNotEmpty) {
-      return DioMediaType.parse(contentType);
+    final headerType = response.headers['content-type'];
+    if (headerType != null &&
+        headerType.isNotEmpty &&
+        headerType != 'application/octet-stream') {
+      return DioMediaType.parse(headerType);
     }
+
+    final bytes = response.bodyBytes;
+    if (bytes.length >= 4) {
+      if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+        return DioMediaType.parse('image/jpeg');
+      }
+      if (bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4E &&
+          bytes[3] == 0x47) {
+        return DioMediaType.parse('image/png');
+      }
+      if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
+        return DioMediaType.parse('image/gif');
+      }
+      if (bytes.length >= 12 &&
+          bytes[0] == 0x52 &&
+          bytes[1] == 0x49 &&
+          bytes[2] == 0x46 &&
+          bytes[3] == 0x46 &&
+          bytes[8] == 0x57 &&
+          bytes[9] == 0x45 &&
+          bytes[10] == 0x42 &&
+          bytes[11] == 0x50) {
+        return DioMediaType.parse('image/webp');
+      }
+    }
+
     return MultipartFile.lookupMediaType(filename);
   }
 

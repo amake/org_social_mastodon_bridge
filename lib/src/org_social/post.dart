@@ -1,10 +1,15 @@
 enum OrgSocialMediaKind { image, video }
 
 final class OrgSocialMediaCandidate {
-  const OrgSocialMediaCandidate({required this.url, required this.kind});
+  const OrgSocialMediaCandidate({
+    required this.url,
+    required this.kind,
+    this.altText,
+  });
 
   final Uri url;
   final OrgSocialMediaKind kind;
+  final String? altText;
 }
 
 final class OrgSocialPoll {

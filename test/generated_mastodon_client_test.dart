@@ -174,10 +174,55 @@ void main() {
     expect(statusBody['poll']['options'], ['A', 'B', 'C']);
     expect(statusBody['poll']['expires_in'], isPositive);
   });
+
+  test('passes alt text to mastodon and sniffs content-type', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(
+        BaseOptions(baseUrl: 'https://mastodon.example'),
+      )..interceptors.add(interceptor),
+      httpClient: _StubHttpClient({
+        Uri.parse('https://cdn.example/mystery'): _StubHttpResponse(
+          body: [0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0], // PNG magic bytes
+          headers: {'content-type': 'application/octet-stream'},
+        ),
+      }),
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: '2025-04-28T12:00:00+0100',
+        text: 'alt text post',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: '2025-04-28T12:00:00+0100',
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://cdn.example/mystery'),
+            kind: OrgSocialMediaKind.image,
+            altText: 'A mysterious image',
+          ),
+        ],
+      ),
+    );
+
+    expect(interceptor.uploadedDescriptions.single, 'A mysterious image');
+    expect(interceptor.uploadedContentTypes.single, 'image/png');
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {
   final List<String> uploadedFilenames = [];
+  final List<String?> uploadedDescriptions = [];
+  final List<String?> uploadedContentTypes = [];
   final List<Map<String, dynamic>> statusBodies = [];
   int _mediaCounter = 0;
   int _statusCounter = 0;
@@ -187,7 +232,15 @@ final class _StubMastodonInterceptor extends Interceptor {
     switch (options.path) {
       case '/api/v2/media':
         final formData = options.data as FormData;
-        uploadedFilenames.add(formData.files.single.value.filename!);
+        final file = formData.files.single.value;
+        uploadedFilenames.add(file.filename!);
+        uploadedContentTypes.add(file.contentType?.toString());
+        uploadedDescriptions.add(
+          formData.fields
+              .where((f) => f.key == 'description')
+              .map((f) => f.value)
+              .firstOrNull,
+        );
         _mediaCounter += 1;
         handler.resolve(
           Response(
@@ -195,7 +248,7 @@ final class _StubMastodonInterceptor extends Interceptor {
             statusCode: 202,
             data: {
               'id': 'media-$_mediaCounter',
-              'type': _mediaTypeFor(formData.files.single.value.filename!),
+              'type': _mediaTypeFor(file.filename!),
               'url': null,
             },
           ),
