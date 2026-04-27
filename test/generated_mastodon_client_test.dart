@@ -132,6 +132,48 @@ void main() {
     expect(interceptor.uploadedFilenames, ['movie.mp4']);
     expect(interceptor.statusBodies.single['media_ids'], ['media-1']);
   });
+
+  test('posts a poll status and ignores media when both present', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(
+        BaseOptions(baseUrl: 'https://mastodon.example'),
+      )..interceptors.add(interceptor),
+    );
+
+    final endsAt = DateTime.now().add(const Duration(hours: 1));
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: '2025-04-28T12:00:00+0100',
+        text: 'poll post',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: '2025-04-28T12:00:00+0100',
+        poll: OrgSocialPoll(endsAt: endsAt, options: ['A', 'B', 'C']),
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://cdn.example/ignored.jpg'),
+            kind: OrgSocialMediaKind.image,
+          ),
+        ],
+      ),
+    );
+
+    expect(interceptor.uploadedFilenames, isEmpty);
+    final statusBody = interceptor.statusBodies.single;
+    expect(statusBody['status'], 'poll post');
+    expect(statusBody['poll'], isNotNull);
+    expect(statusBody['poll']['options'], ['A', 'B', 'C']);
+    expect(statusBody['poll']['expires_in'], isPositive);
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {

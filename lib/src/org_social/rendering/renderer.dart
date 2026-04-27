@@ -6,10 +6,12 @@ final class OrgSocialRenderedContent {
   const OrgSocialRenderedContent({
     required this.text,
     required this.mediaCandidates,
+    this.poll,
   });
 
   final String text;
   final List<OrgSocialMediaCandidate> mediaCandidates;
+  final OrgSocialPoll? poll;
 }
 
 class OrgSocialRenderer {
@@ -28,13 +30,27 @@ class OrgSocialRenderer {
     '.m4v',
   };
 
-  OrgSocialRenderedContent renderSection(OrgSection section) {
+  OrgSocialRenderedContent renderSection(
+    OrgSection section, {
+    DateTime? pollEndsAt,
+  }) {
     final collector = _MediaCollector();
     final blocks = <String>[];
+    OrgSocialPoll? poll;
+
     for (final node in section.content?.children ?? const <OrgNode>[]) {
       if (node case final OrgDrawer drawer when drawer.isPropertyDrawer) {
         continue;
       }
+
+      if (pollEndsAt != null && poll == null && node is OrgList) {
+        final options = _extractPollOptions(node, collector);
+        if (options != null && options.length >= 2) {
+          poll = OrgSocialPoll(endsAt: pollEndsAt, options: options);
+          continue;
+        }
+      }
+
       final rendered = _renderBlock(node, collector).trim();
       if (rendered.isNotEmpty) {
         blocks.add(rendered);
@@ -43,7 +59,23 @@ class OrgSocialRenderer {
     return OrgSocialRenderedContent(
       text: blocks.join('\n\n').trim(),
       mediaCandidates: collector.candidates,
+      poll: poll,
     );
+  }
+
+  List<String>? _extractPollOptions(OrgList list, _MediaCollector collector) {
+    final options = <String>[];
+    for (final item in list.items) {
+      if (item.checkbox == null) {
+        return null;
+      }
+      final body =
+          item.body == null ? '' : _renderInline(item.body!, collector).trim();
+      if (body.isNotEmpty) {
+        options.add(body);
+      }
+    }
+    return options.isEmpty ? null : options;
   }
 
   String _renderBlock(OrgNode node, _MediaCollector collector) {

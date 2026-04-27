@@ -152,4 +152,32 @@ Should be skipped
 
     expect(posts, isEmpty);
   });
+
+  test('extracts poll information when :POLL_END: and checkbox list are present', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:POLL_END: 2025-04-29T12:00:00+0100
+:END:
+
+What is your favorite color?
+
+- [ ] Red
+- [ ] Blue
+- [ ] Green
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    final post = posts.single;
+    expect(post.poll, isNotNull);
+    expect(post.poll!.endsAt.isAtSameMomentAs(DateTime.parse('2025-04-29T11:00:00Z')), isTrue);
+    expect(post.poll!.options, ['Red', 'Blue', 'Green']);
+    expect(post.text, 'What is your favorite color?');
+  });
 }

@@ -57,6 +57,7 @@ class OrgSocialService {
   OrgSocialPost? _parsePost(OrgSection section) {
     final headline = section.headline.rawTitle?.trim();
     final propertyId = _firstProperty(section, ':ID:')?.trim();
+    final pollEndStr = _firstProperty(section, ':POLL_END:')?.trim();
     final headlineId = _normalizedTimestampOrNull(headline);
     final propertyTimestamp = _normalizedTimestampOrNull(propertyId);
     final sourceId = headlineId ?? propertyTimestamp;
@@ -68,9 +69,24 @@ class OrgSocialService {
       return null;
     }
 
-    final rendered = _renderer.renderSection(section);
-    if (rendered.text.isEmpty) {
-      throw FormatException('Post "$sourceId" has no body text');
+    DateTime? pollEndsAt;
+    if (pollEndStr != null) {
+      try {
+        pollEndsAt = _parsePublishedAt(pollEndStr);
+      } catch (e) {
+        logger.warning('Malformed :POLL_END: property in post $sourceId: $e');
+      }
+    }
+
+    final rendered = _renderer.renderSection(section, pollEndsAt: pollEndsAt);
+    if (rendered.text.isEmpty && rendered.poll == null) {
+      throw FormatException('Post "$sourceId" has no body text or poll');
+    }
+
+    if (pollEndsAt != null && rendered.poll == null) {
+      logger.warning(
+        'Post $sourceId has :POLL_END: but no valid checkbox list for poll',
+      );
     }
 
     logger.debug(
@@ -87,6 +103,7 @@ class OrgSocialService {
       contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),
       canonicalUrl: null,
       mediaCandidates: rendered.mediaCandidates,
+      poll: rendered.poll,
     );
   }
 

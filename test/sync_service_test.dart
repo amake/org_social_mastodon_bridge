@@ -88,6 +88,45 @@ void main() {
     expect(mastodon.postedTexts, isEmpty);
     expect(stateStore.saveCalls, 0);
   });
+
+  test('syncs posts with polls', () async {
+    final poll = OrgSocialPoll(
+      endsAt: DateTime.now().add(const Duration(days: 1)),
+      options: ['Yes', 'No'],
+    );
+    final feedService = _FakeFeedService([
+      OrgSocialPost(
+        sourceId: 'poll',
+        text: 'Do you like polls?',
+        publishedAt: DateTime.utc(2025, 4, 28, 12),
+        headline: 'poll',
+        poll: poll,
+      ),
+    ]);
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.postedPosts.single.poll, isNotNull);
+    expect(mastodon.postedPosts.single.poll!.options, ['Yes', 'No']);
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
@@ -100,12 +139,13 @@ final class _FakeFeedService extends OrgSocialService {
 }
 
 final class _FakeMastodonClient implements MastodonClient {
-  final List<String> postedTexts = [];
+  final List<OrgSocialPost> postedPosts = [];
+  List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
 
   @override
   Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
-    postedTexts.add(post.text);
-    return MastodonPostResult(statusId: '${postedTexts.length}', url: null);
+    postedPosts.add(post);
+    return MastodonPostResult(statusId: '${postedPosts.length}', url: null);
   }
 
   @override

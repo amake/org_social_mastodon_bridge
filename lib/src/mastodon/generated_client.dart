@@ -47,31 +47,105 @@ class GeneratedMastodonClient implements MastodonClient {
   @override
   Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
     logger.debug('Creating Mastodon status for ${post.sourceId}');
+
+    final poll = post.poll;
+    if (poll != null) {
+      final expiresIn = poll.endsAt.difference(DateTime.now()).inSeconds;
+      if (expiresIn <= 0) {
+        logger.warning(
+          'Post ${post.sourceId} has an expired poll (endsAt=${poll.endsAt}). '
+          'Falling back to text-only post.',
+        );
+      } else if (poll.options.length > 4) {
+        logger.warning(
+          'Post ${post.sourceId} has too many poll options (${poll.options.length}). '
+          'Mastodon usually limits to 4. Falling back to text-only post.',
+        );
+      } else {
+        if (post.mediaCandidates.isNotEmpty) {
+          logger.warning(
+            'Post ${post.sourceId} has both poll and media candidates. '
+            'Mastodon does not support both; prioritizing poll.',
+          );
+        }
+        final request = _buildPollRequest(post, expiresIn);
+        return _sendRequest(post.sourceId, request);
+      }
+    }
+
     final selectedMedia = _selectMediaCandidates(post.mediaCandidates);
-    final request = selectedMedia.isEmpty
-        ? _buildTextRequest(post)
-        : await _buildMediaRequest(post, selectedMedia);
-    logger.debug(
-      'Posting ${post.sourceId} with ${selectedMedia.length} media attachment(s)',
-    );
-    final response = await _api.getStatusesApi().createStatus(
-      createStatusRequest: request,
-      idempotencyKey: JsonObject(post.sourceId),
-    );
-    return _parsePostResult(post.sourceId, response.data);
+    final request =
+        selectedMedia.isEmpty
+            ? _buildTextRequest(post, appendPollOptions: poll != null)
+            : await _buildMediaRequest(
+              post,
+              selectedMedia,
+              appendPollOptions: poll != null,
+            );
+
+    return _sendRequest(post.sourceId, request);
   }
 
-  generated.CreateStatusRequest _buildTextRequest(OrgSocialPost post) {
+  Future<MastodonPostResult> _sendRequest(
+    String sourceId,
+    generated.CreateStatusRequest request,
+  ) async {
+    final response = await _api.getStatusesApi().createStatus(
+      createStatusRequest: request,
+      idempotencyKey: JsonObject(sourceId),
+    );
+    return _parsePostResult(sourceId, response.data);
+  }
+
+  generated.CreateStatusRequest _buildPollRequest(
+    OrgSocialPost post,
+    int expiresIn,
+  ) {
+    final poll = post.poll!;
+    final pollParams = generated.UpdateStatusRequestPoll(
+      (builder) =>
+          builder
+            ..options.addAll(poll.options)
+            ..expiresIn = expiresIn,
+    );
+
+    final pollStatus = generated.PollStatus(
+      (builder) =>
+          builder
+            ..poll = pollParams.toBuilder()
+            ..status = post.text
+            ..visibility = _visibility
+            ..language = post.language ?? config.language
+            ..spoilerText = post.contentWarning,
+    );
+
+    return generated.CreateStatusRequest(
+      (builder) =>
+          builder.oneOf = OneOf.fromValue3<
+            generated.TextStatus,
+            generated.MediaStatus,
+            generated.PollStatus
+          >(value: pollStatus),
+    );
+  }
+
+  generated.CreateStatusRequest _buildTextRequest(
+    OrgSocialPost post, {
+    bool appendPollOptions = false,
+  }) {
+    final statusText =
+        appendPollOptions ? _appendPollOptions(post.text, post.poll!) : post.text;
     final textStatus = generated.TextStatus(
-      (builder) => builder
-        ..status = post.text
-        ..visibility = _visibility
-        ..language = post.language ?? config.language
-        ..spoilerText = post.contentWarning,
+      (builder) =>
+          builder
+            ..status = statusText
+            ..visibility = _visibility
+            ..language = post.language ?? config.language
+            ..spoilerText = post.contentWarning,
     );
     final request = generated.CreateStatusRequest(
-      (builder) => builder.oneOf =
-          OneOf.fromValue3<
+      (builder) =>
+          builder.oneOf = OneOf.fromValue3<
             generated.TextStatus,
             generated.MediaStatus,
             generated.PollStatus
@@ -82,29 +156,38 @@ class GeneratedMastodonClient implements MastodonClient {
 
   Future<generated.CreateStatusRequest> _buildMediaRequest(
     OrgSocialPost post,
-    List<OrgSocialMediaCandidate> selectedMedia,
-  ) async {
+    List<OrgSocialMediaCandidate> selectedMedia, {
+    bool appendPollOptions = false,
+  }) async {
     final mediaIds = <String>[];
     for (final candidate in selectedMedia) {
       final uploaded = await _uploadMedia(candidate);
       mediaIds.add(uploaded.id);
     }
+    final statusText =
+        appendPollOptions ? _appendPollOptions(post.text, post.poll!) : post.text;
     final mediaStatus = generated.MediaStatus(
-      (builder) => builder
-        ..mediaIds.addAll(mediaIds)
-        ..status = post.text
-        ..visibility = _visibility
-        ..language = post.language ?? config.language
-        ..spoilerText = post.contentWarning,
+      (builder) =>
+          builder
+            ..mediaIds.addAll(mediaIds)
+            ..status = statusText
+            ..visibility = _visibility
+            ..language = post.language ?? config.language
+            ..spoilerText = post.contentWarning,
     );
     return generated.CreateStatusRequest(
-      (builder) => builder.oneOf =
-          OneOf.fromValue3<
+      (builder) =>
+          builder.oneOf = OneOf.fromValue3<
             generated.TextStatus,
             generated.MediaStatus,
             generated.PollStatus
           >(value: mediaStatus),
     );
+  }
+
+  String _appendPollOptions(String text, OrgSocialPoll poll) {
+    final optionsText = poll.options.map((o) => '- [ ] $o').join('\n');
+    return text.isEmpty ? optionsText : '$text\n\n$optionsText';
   }
 
   MastodonPostResult _parsePostResult(
