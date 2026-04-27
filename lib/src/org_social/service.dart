@@ -1,19 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:org_parser/org_parser.dart';
 
 import '../config/config.dart';
 import '../logging/logging.dart';
 import 'post.dart';
+import 'rendering/renderer.dart';
 
 class OrgSocialService {
   OrgSocialService({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+    : _httpClient = httpClient ?? http.Client(),
+      _renderer = OrgSocialRenderer();
 
   final http.Client _httpClient;
+  final OrgSocialRenderer _renderer;
 
   Future<List<OrgSocialPost>> fetchPosts(SourceConfig config) async {
     logger.debug('Fetching Org Social feed from ${config.feedUrl}');
@@ -42,26 +43,9 @@ class OrgSocialService {
     );
 
     final posts = postsSection.sections
-        .map((section) {
-          final id = _firstProperty(section, ':ID:');
-          final headline = section.headline.rawTitle?.trim();
-          final sourceId = (id != null && id.isNotEmpty)
-              ? id
-              : _fallbackSourceId(feedUrl, section);
-          final publishedAt = _parsePublishedAt(id ?? headline ?? sourceId);
-          final text = _renderVisibleContent(section).trim();
-          if (text.isEmpty) {
-            throw FormatException('Post "$sourceId" has no body text');
-          }
-          return OrgSocialPost(
-            sourceId: sourceId,
-            text: text,
-            publishedAt: publishedAt,
-            headline: headline ?? sourceId,
-            language: _firstProperty(section, ':LANG:'),
-            contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),
-            canonicalUrl: null,
-          );
+        .expand((section) {
+          final post = _parsePost(section);
+          return post == null ? const <OrgSocialPost>[] : [post];
         })
         .toList(growable: false);
 
@@ -70,44 +54,67 @@ class OrgSocialService {
     return posts;
   }
 
+  OrgSocialPost? _parsePost(OrgSection section) {
+    final headline = section.headline.rawTitle?.trim();
+    final propertyId = _firstProperty(section, ':ID:')?.trim();
+    final headlineId = _normalizedTimestampOrNull(headline);
+    final propertyTimestamp = _normalizedTimestampOrNull(propertyId);
+    final sourceId = headlineId ?? propertyTimestamp;
+    if (sourceId == null) {
+      logger.warning(
+        'Skipping post with no valid timestamp ID '
+        '(headline=${jsonEncode(headline)}, propertyId=${jsonEncode(propertyId)})',
+      );
+      return null;
+    }
+
+    final rendered = _renderer.renderSection(section);
+    if (rendered.text.isEmpty) {
+      throw FormatException('Post "$sourceId" has no body text');
+    }
+
+    logger.debug(
+      'Using source ID $sourceId '
+      '(headline_preferred=${headlineId != null})',
+    );
+    return OrgSocialPost(
+      sourceId: sourceId,
+      text: rendered.text,
+      publishedAt: _parsePublishedAt(sourceId),
+      headline: headline ?? sourceId,
+      headlineId: headlineId,
+      language: _firstProperty(section, ':LANG:'),
+      contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),
+      canonicalUrl: null,
+      mediaCandidates: rendered.mediaCandidates,
+    );
+  }
+
   String? _firstProperty(OrgSection section, String key) {
     final properties = section.getProperties(key);
     return properties.isEmpty ? null : properties.first;
   }
 
-  String _renderVisibleContent(OrgSection section) {
-    final content = section.content;
-    if (content == null) {
-      return '';
-    }
-    return content.children
-        .where((node) => node is! OrgDrawer || !node.isPropertyDrawer)
-        .map((node) => node.toPlainText())
-        .join()
-        .trim();
-  }
-
-  String _fallbackSourceId(Uri feedUrl, OrgSection section) {
-    final body = _renderVisibleContent(section);
-    final digest = sha256
-        .convert(
-          utf8.encode(
-            '${feedUrl.toString()}\n${section.headline.rawTitle}\n$body',
-          ),
-        )
-        .toString();
-    return 'sha256:$digest';
-  }
-
   DateTime _parsePublishedAt(String value) {
-    final normalized = value.replaceFirstMapped(
-      RegExp(r'([+-]\d{2})(\d{2})$'),
-      (match) => '${match.group(1)}:${match.group(2)}',
-    );
+    final normalized = _normalizeTimestamp(value);
     final parsed = DateTime.tryParse(normalized);
     if (parsed == null) {
       throw FormatException('Unable to parse post timestamp "$value"');
     }
     return parsed.toUtc();
+  }
+
+  String? _normalizedTimestampOrNull(String? value) {
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(_normalizeTimestamp(value)) == null ? null : value;
+  }
+
+  String _normalizeTimestamp(String value) {
+    return value.replaceFirstMapped(
+      RegExp(r'([+-]\d{2})(\d{2})$'),
+      (match) => '${match.group(1)}:${match.group(2)}',
+    );
   }
 }

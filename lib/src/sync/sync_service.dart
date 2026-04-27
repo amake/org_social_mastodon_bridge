@@ -94,10 +94,13 @@ class SyncService {
     return OrgSocialPost(
       sourceId: post.sourceId,
       headline: post.headline,
+      headlineId: post.headlineId,
       publishedAt: post.publishedAt,
       language: post.language,
       contentWarning: post.contentWarning,
       canonicalUrl: post.canonicalUrl,
+      mediaCandidates: post.mediaCandidates,
+      poll: post.poll,
       text: '${post.text}\n\n${post.canonicalUrl}',
     );
   }
