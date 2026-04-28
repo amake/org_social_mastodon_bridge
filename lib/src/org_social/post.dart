@@ -61,4 +61,27 @@ final class OrgSocialPost {
   final OrgSocialPoll? poll;
 
   String get contentHash => sha256.convert(utf8.encode(orgMarkup)).toString();
+
+  String get renderedHash {
+    final data = {
+      'text': text,
+      'lang': language,
+      'cw': contentWarning,
+      'vis': visibility,
+      'tags': tags,
+      'mood': mood,
+      'poll':
+          poll == null
+              ? null
+              : {
+                'options': poll!.options,
+                'endsAt': poll!.endsAt.toUtc().toIso8601String(),
+              },
+      'media':
+          mediaCandidates
+              .map((m) => {'url': m.url.toString(), 'alt': m.altText})
+              .toList(),
+    };
+    return sha256.convert(utf8.encode(json.encode(data))).toString();
+  }
 }

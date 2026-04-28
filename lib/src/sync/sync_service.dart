@@ -40,7 +40,13 @@ class SyncService {
             .where((post) {
               final record = existingState.records[post.sourceId];
               if (record == null) return true;
-              return record.contentHash != post.contentHash;
+              final currentPost = _withOptionalLink(post, config.sync.includeLink);
+              if (record.contentHash != currentPost.contentHash) return true;
+              if (record.renderedHash != null &&
+                  record.renderedHash != currentPost.renderedHash) {
+                return true;
+              }
+              return false;
             })
             .toList(growable: false);
 
@@ -64,17 +70,21 @@ class SyncService {
         break;
       }
 
+      final currentPost = _withOptionalLink(post, config.sync.includeLink);
       final existingRecord = state.records[post.sourceId];
+
       if (existingRecord != null) {
-        if (existingRecord.contentHash == null) {
-          logger.debug('Initializing content hash for ${post.sourceId}');
+        if (existingRecord.contentHash == null ||
+            existingRecord.renderedHash == null) {
+          logger.debug('Initializing missing hashes for ${post.sourceId}');
           state = state.withRecord(
             SyncRecord(
               sourceId: existingRecord.sourceId,
               mastodonStatusId: existingRecord.mastodonStatusId,
               postedAt: existingRecord.postedAt,
               mastodonUrl: existingRecord.mastodonUrl,
-              contentHash: post.contentHash,
+              contentHash: currentPost.contentHash,
+              renderedHash: currentPost.renderedHash,
               mediaIds: existingRecord.mediaIds,
             ),
           );
@@ -87,10 +97,12 @@ class SyncService {
           continue;
         }
 
-        logger.info('Updating status ${existingRecord.mastodonStatusId} for ${post.sourceId}');
+        logger.info(
+          'Updating status ${existingRecord.mastodonStatusId} for ${post.sourceId}',
+        );
         final result = await mastodonClient.updateStatus(
           existingRecord.mastodonStatusId,
-          _withOptionalLink(post, config.sync.includeLink),
+          currentPost,
           existingMediaIds: existingRecord.mediaIds,
         );
 
@@ -100,7 +112,8 @@ class SyncService {
             mastodonStatusId: result.statusId,
             postedAt: DateTime.now().toUtc(),
             mastodonUrl: result.url?.toString(),
-            contentHash: post.contentHash,
+            contentHash: currentPost.contentHash,
+            renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
           ),
         );
@@ -113,9 +126,7 @@ class SyncService {
         }
 
         logger.info('Posting new status for ${post.sourceId}');
-        final result = await mastodonClient.postStatus(
-          _withOptionalLink(post, config.sync.includeLink),
-        );
+        final result = await mastodonClient.postStatus(currentPost);
 
         state = state.withRecord(
           SyncRecord(
@@ -123,7 +134,8 @@ class SyncService {
             mastodonStatusId: result.statusId,
             postedAt: DateTime.now().toUtc(),
             mastodonUrl: result.url?.toString(),
-            contentHash: post.contentHash,
+            contentHash: currentPost.contentHash,
+            renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
           ),
         );

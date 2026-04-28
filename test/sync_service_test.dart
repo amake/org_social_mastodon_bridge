@@ -33,6 +33,13 @@ void main() {
             headline: 'old',
             orgMarkup: '* old',
           ).contentHash,
+          renderedHash: OrgSocialPost(
+            sourceId: 'old',
+            text: 'Old text',
+            publishedAt: DateTime.utc(2025, 4, 28, 11),
+            headline: 'old',
+            orgMarkup: '* old',
+          ).renderedHash,
         ),
       }),
     );
@@ -164,6 +171,7 @@ void main() {
           mastodonStatusId: 'original-id',
           postedAt: DateTime.utc(2025, 4, 28, 11),
           contentHash: originalPost.contentHash,
+          renderedHash: originalPost.renderedHash,
         ),
       }),
     );
@@ -189,6 +197,50 @@ void main() {
     expect(mastodon.updateCalls, 1);
     expect(mastodon.postedPosts.single.text, 'Edited');
     expect(stateStore.state.records['edit-me']!.contentHash, editedPost.contentHash);
+  });
+
+  test('syncs posts when rendering changes but source does not', () async {
+    final post = OrgSocialPost(
+      sourceId: 'render-change',
+      text: 'Old rendering',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'render-change',
+      orgMarkup: '* render-change',
+    );
+
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(
+      SyncState({
+        'render-change': SyncRecord(
+          sourceId: 'render-change',
+          mastodonStatusId: 'id',
+          postedAt: DateTime.utc(2025, 4, 28, 11),
+          contentHash: post.contentHash,
+          renderedHash: 'old-rendered-hash',
+        ),
+      }),
+    );
+
+    final service = SyncService(
+      feedService: _FakeFeedService([post]),
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.updateCalls, 1);
+    expect(stateStore.state.records['render-change']!.renderedHash, post.renderedHash);
   });
 }
 

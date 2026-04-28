@@ -15,6 +15,7 @@ final class SyncRecord {
     required this.postedAt,
     this.mastodonUrl,
     this.contentHash,
+    this.renderedHash,
     this.mediaIds = const [],
   });
 
@@ -24,6 +25,7 @@ final class SyncRecord {
     postedAt: DateTime.parse(json['posted_at']! as String).toUtc(),
     mastodonUrl: json['mastodon_url'] as String?,
     contentHash: json['content_hash'] as String?,
+    renderedHash: json['rendered_hash'] as String?,
     mediaIds:
         (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
   );
@@ -33,6 +35,7 @@ final class SyncRecord {
   final DateTime postedAt;
   final String? mastodonUrl;
   final String? contentHash;
+  final String? renderedHash;
   final List<String> mediaIds;
 
   Map<String, Object?> toJson() => {
@@ -41,6 +44,7 @@ final class SyncRecord {
     'posted_at': postedAt.toUtc().toIso8601String(),
     if (mastodonUrl != null) 'mastodon_url': mastodonUrl,
     if (contentHash != null) 'content_hash': contentHash,
+    if (renderedHash != null) 'rendered_hash': renderedHash,
     'media_ids': mediaIds,
   };
 }
