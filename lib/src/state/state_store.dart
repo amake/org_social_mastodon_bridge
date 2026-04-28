@@ -14,6 +14,8 @@ final class SyncRecord {
     required this.mastodonStatusId,
     required this.postedAt,
     this.mastodonUrl,
+    this.contentHash,
+    this.mediaIds = const [],
   });
 
   factory SyncRecord.fromJson(Map<String, Object?> json) => SyncRecord(
@@ -21,18 +23,25 @@ final class SyncRecord {
     mastodonStatusId: json['mastodon_status_id']! as String,
     postedAt: DateTime.parse(json['posted_at']! as String).toUtc(),
     mastodonUrl: json['mastodon_url'] as String?,
+    contentHash: json['content_hash'] as String?,
+    mediaIds:
+        (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
   );
 
   final String sourceId;
   final String mastodonStatusId;
   final DateTime postedAt;
   final String? mastodonUrl;
+  final String? contentHash;
+  final List<String> mediaIds;
 
   Map<String, Object?> toJson() => {
     'source_id': sourceId,
     'mastodon_status_id': mastodonStatusId,
     'posted_at': postedAt.toUtc().toIso8601String(),
     if (mastodonUrl != null) 'mastodon_url': mastodonUrl,
+    if (contentHash != null) 'content_hash': contentHash,
+    'media_ids': mediaIds,
   };
 }
 

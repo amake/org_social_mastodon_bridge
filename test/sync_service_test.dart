@@ -9,12 +9,14 @@ void main() {
         text: 'Old text',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: 'old',
+        orgMarkup: '* old',
       ),
       OrgSocialPost(
         sourceId: 'new',
         text: 'New text',
         publishedAt: DateTime.utc(2025, 4, 28, 12),
         headline: 'new',
+        orgMarkup: '* new',
       ),
     ]);
     final mastodon = _FakeMastodonClient();
@@ -24,6 +26,13 @@ void main() {
           sourceId: 'old',
           mastodonStatusId: '1',
           postedAt: DateTime.utc(2025, 4, 28, 11),
+          contentHash: OrgSocialPost(
+            sourceId: 'old',
+            text: 'Old text',
+            publishedAt: DateTime.utc(2025, 4, 28, 11),
+            headline: 'old',
+            orgMarkup: '* old',
+          ).contentHash,
         ),
       }),
     );
@@ -60,6 +69,7 @@ void main() {
         text: 'New text',
         publishedAt: DateTime.utc(2025, 4, 28, 12),
         headline: 'new',
+        orgMarkup: '* new',
       ),
     ]);
     final mastodon = _FakeMastodonClient();
@@ -101,6 +111,7 @@ void main() {
         publishedAt: DateTime.utc(2025, 4, 28, 12),
         headline: 'poll',
         poll: poll,
+        orgMarkup: '* poll',
       ),
     ]);
     final mastodon = _FakeMastodonClient();
@@ -127,6 +138,58 @@ void main() {
     expect(mastodon.postedPosts.single.poll, isNotNull);
     expect(mastodon.postedPosts.single.poll!.options, ['Yes', 'No']);
   });
+
+  test('syncs edited posts by updating', () async {
+    final originalPost = OrgSocialPost(
+      sourceId: 'edit-me',
+      text: 'Original',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'edit-me',
+      orgMarkup: '* edit-me\nOriginal',
+    );
+    final editedPost = OrgSocialPost(
+      sourceId: 'edit-me',
+      text: 'Edited',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'edit-me',
+      orgMarkup: '* edit-me\nEdited',
+    );
+
+    final feedService = _FakeFeedService([editedPost]);
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(
+      SyncState({
+        'edit-me': SyncRecord(
+          sourceId: 'edit-me',
+          mastodonStatusId: 'original-id',
+          postedAt: DateTime.utc(2025, 4, 28, 11),
+          contentHash: originalPost.contentHash,
+        ),
+      }),
+    );
+
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.updateCalls, 1);
+    expect(mastodon.postedPosts.single.text, 'Edited');
+    expect(stateStore.state.records['edit-me']!.contentHash, editedPost.contentHash);
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
@@ -141,11 +204,24 @@ final class _FakeFeedService extends OrgSocialService {
 final class _FakeMastodonClient implements MastodonClient {
   final List<OrgSocialPost> postedPosts = [];
   List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
+  int updateCalls = 0;
 
   @override
   Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
     postedPosts.add(post);
     return MastodonPostResult(statusId: '${postedPosts.length}', url: null);
+  }
+
+  @override
+  Future<MastodonPostResult> updateStatus(
+    String statusId,
+    OrgSocialPost post, {
+    List<String>? existingMediaIds,
+  }) async {
+    updateCalls += 1;
+    postedPosts.clear();
+    postedPosts.add(post);
+    return MastodonPostResult(statusId: statusId, url: null);
   }
 
   @override

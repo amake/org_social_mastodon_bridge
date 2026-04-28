@@ -74,16 +74,63 @@ class GeneratedMastodonClient implements MastodonClient {
     }
 
     final selectedMedia = _selectMediaCandidates(post.mediaCandidates);
+    final mediaIds = <String>[];
+    for (final candidate in selectedMedia) {
+      final uploaded = await _uploadMedia(candidate);
+      mediaIds.add(uploaded.id);
+    }
+
     final request =
-        selectedMedia.isEmpty
+        mediaIds.isEmpty
             ? _buildTextRequest(post, appendPollOptions: poll != null)
-            : await _buildMediaRequest(
+            : _buildMediaRequest(
               post,
-              selectedMedia,
+              mediaIds,
               appendPollOptions: poll != null,
             );
 
     return _sendRequest(post.sourceId, request);
+  }
+
+  @override
+  Future<MastodonPostResult> updateStatus(
+    String statusId,
+    OrgSocialPost post, {
+    List<String>? existingMediaIds,
+  }) async {
+    logger.debug('Updating Mastodon status $statusId for ${post.sourceId}');
+
+    final poll = post.poll;
+    if (poll != null) {
+      final expiresIn = poll.endsAt.difference(DateTime.now()).inSeconds;
+      if (expiresIn > 0 && poll.options.length <= 4) {
+        final request = _buildUpdatePollRequest(post, expiresIn);
+        return _sendUpdateRequest(statusId, post.sourceId, request);
+      }
+    }
+
+    final selectedMedia = _selectMediaCandidates(post.mediaCandidates);
+    final mediaIds = <String>[];
+
+    // If candidate count and existing media count match, assume they are the same
+    if (existingMediaIds != null &&
+        existingMediaIds.length == selectedMedia.length) {
+      logger.debug('Reusing existing media IDs for update');
+      mediaIds.addAll(existingMediaIds);
+    } else {
+      for (final candidate in selectedMedia) {
+        final uploaded = await _uploadMedia(candidate);
+        mediaIds.add(uploaded.id);
+      }
+    }
+
+    final request = _buildUpdateRequest(
+      post,
+      mediaIds: mediaIds.isEmpty ? null : mediaIds,
+      appendPollOptions: poll != null,
+    );
+
+    return _sendUpdateRequest(statusId, post.sourceId, request);
   }
 
   Future<MastodonPostResult> _sendRequest(
@@ -95,6 +142,28 @@ class GeneratedMastodonClient implements MastodonClient {
       idempotencyKey: JsonObject(sourceId),
     );
     return _parsePostResult(sourceId, response.data);
+  }
+
+  Future<MastodonPostResult> _sendUpdateRequest(
+    String statusId,
+    String sourceId,
+    generated.UpdateStatusRequest request,
+  ) async {
+    final response = await _api.getStatusesApi().updateStatus(
+      id: statusId,
+      updateStatusRequest: request,
+    );
+    final status = response.data;
+    if (status == null) {
+      throw StateError(
+        'Mastodon returned an empty response for update of $statusId',
+      );
+    }
+    return MastodonPostResult(
+      statusId: status.id,
+      url: status.url == null ? null : Uri.parse(status.url!),
+      mediaIds: status.mediaAttachments.map((m) => m.id).toList(),
+    );
   }
 
   generated.StatusVisibilityEnum _visibilityFor(OrgSocialPost post) {
@@ -164,21 +233,20 @@ class GeneratedMastodonClient implements MastodonClient {
     return request;
   }
 
-  Future<generated.CreateStatusRequest> _buildMediaRequest(
+  generated.CreateStatusRequest _buildMediaRequest(
     OrgSocialPost post,
-    List<OrgSocialMediaCandidate> selectedMedia, {
+    List<String> mediaIds, {
     bool appendPollOptions = false,
-  }) async {
-    final mediaIds = <String>[];
-    for (final candidate in selectedMedia) {
-      final uploaded = await _uploadMedia(candidate);
-      mediaIds.add(uploaded.id);
-    }
+  }) {
+    final statusText = _buildFinalStatusText(
+      post,
+      appendPollOptions: appendPollOptions,
+    );
     final mediaStatus = generated.MediaStatus(
       (builder) =>
           builder
             ..mediaIds.addAll(mediaIds)
-            ..status = _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
+            ..status = statusText
             ..visibility = _visibilityFor(post)
             ..language = post.language ?? config.language
             ..spoilerText = post.contentWarning,
@@ -193,7 +261,51 @@ class GeneratedMastodonClient implements MastodonClient {
     );
   }
 
-  String _buildFinalStatusText(OrgSocialPost post, {bool appendPollOptions = false}) {
+  generated.UpdateStatusRequest _buildUpdateRequest(
+    OrgSocialPost post, {
+    List<String>? mediaIds,
+    bool appendPollOptions = false,
+  }) {
+    return generated.UpdateStatusRequest(
+      (builder) {
+        builder
+          ..status =
+              _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
+          ..language = post.language ?? config.language
+          ..spoilerText = post.contentWarning;
+        if (mediaIds != null) {
+          builder.mediaIds.addAll(mediaIds);
+        }
+      },
+    );
+  }
+
+  generated.UpdateStatusRequest _buildUpdatePollRequest(
+    OrgSocialPost post,
+    int expiresIn,
+  ) {
+    final poll = post.poll!;
+    final pollParams = generated.UpdateStatusRequestPoll(
+      (builder) =>
+          builder
+            ..options.addAll(poll.options)
+            ..expiresIn = expiresIn,
+    );
+
+    return generated.UpdateStatusRequest(
+      (builder) =>
+          builder
+            ..poll = pollParams.toBuilder()
+            ..status = _buildFinalStatusText(post)
+            ..language = post.language ?? config.language
+            ..spoilerText = post.contentWarning,
+    );
+  }
+
+  String _buildFinalStatusText(
+    OrgSocialPost post, {
+    bool appendPollOptions = false,
+  }) {
     final buffer = StringBuffer(post.text);
 
     if (appendPollOptions && post.poll != null) {
@@ -227,11 +339,18 @@ class GeneratedMastodonClient implements MastodonClient {
       return MastodonPostResult(
         statusId: value.id,
         url: value.url == null ? null : Uri.parse(value.url!),
+        mediaIds: value.mediaAttachments.map((m) => m.id).toList(),
       );
     }
     if (value is generated.ScheduledStatus) {
       logger.debug('Received scheduled Mastodon status ${value.id}');
-      return MastodonPostResult(statusId: value.id, url: null);
+      final mediaIds =
+          value.params.mediaIds?.toList().cast<String>() ?? const <String>[];
+      return MastodonPostResult(
+        statusId: value.id,
+        url: null,
+        mediaIds: mediaIds,
+      );
     }
     throw StateError('Unexpected Mastodon response type ${value.runtimeType}');
   }

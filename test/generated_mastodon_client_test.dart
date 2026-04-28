@@ -51,6 +51,7 @@ void main() {
         text: 'hello world',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: '2025-04-28T12:00:00+0100',
+        orgMarkup: '',
         mediaCandidates: [
           OrgSocialMediaCandidate(
             url: Uri.parse('https://cdn.example/1.jpg'),
@@ -113,9 +114,10 @@ void main() {
     await client.postStatus(
       OrgSocialPost(
         sourceId: '2025-04-28T12:00:00+0100',
-        text: 'video post',
+        text: 'test post',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: '2025-04-28T12:00:00+0100',
+        orgMarkup: '',
         mediaCandidates: [
           OrgSocialMediaCandidate(
             url: Uri.parse('https://cdn.example/movie.mp4'),
@@ -157,6 +159,7 @@ void main() {
         text: 'poll post',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: '2025-04-28T12:00:00+0100',
+        orgMarkup: '',
         poll: OrgSocialPoll(endsAt: endsAt, options: ['A', 'B', 'C']),
         mediaCandidates: [
           OrgSocialMediaCandidate(
@@ -204,6 +207,7 @@ void main() {
         text: 'alt text post',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: '2025-04-28T12:00:00+0100',
+        orgMarkup: '',
         mediaCandidates: [
           OrgSocialMediaCandidate(
             url: Uri.parse('https://cdn.example/mystery'),
@@ -242,6 +246,7 @@ void main() {
         text: 'private',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: 'mention',
+        orgMarkup: '',
         visibility: 'mention',
       ),
     );
@@ -252,6 +257,7 @@ void main() {
         text: 'public',
         publishedAt: DateTime.utc(2025, 4, 28, 12),
         headline: 'public',
+        orgMarkup: '',
         visibility: 'public',
       ),
     );
@@ -283,6 +289,7 @@ void main() {
         text: 'Content',
         publishedAt: DateTime.utc(2025, 4, 28, 11),
         headline: 'tags-mood',
+        orgMarkup: '',
         tags: ['tag1', 'tag2'],
         mood: 'Excited',
       ),
@@ -306,6 +313,38 @@ final class _StubMastodonInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path == '/api/v1/statuses') {
+      final body = options.data as Map<String, dynamic>;
+      statusBodies.add(body);
+      _statusCounter += 1;
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'id': 'scheduled-$_statusCounter',
+            'created_at': '2026-04-27T00:00:00.000Z',
+            'content': '',
+            'visibility': body['visibility'] ?? 'public',
+            'media_attachments': (body['media_ids'] as List<dynamic>?)
+                    ?.map((id) => {'id': id, 'type': 'image', 'url': null})
+                    .toList() ??
+                [],
+            'params': {
+              'application_id': 0,
+              'text': body['status'] ?? '',
+              'visibility': body['visibility'] ?? 'public',
+              'with_rate_limit': false,
+              if (body['media_ids'] case final List<dynamic> mediaIds)
+                'media_ids': mediaIds,
+            },
+            'scheduled_at': '2026-04-27T00:00:00.000Z',
+          },
+        ),
+      );
+      return;
+    }
+
     switch (options.path) {
       case '/api/v2/media':
         final formData = options.data as FormData;
@@ -331,61 +370,40 @@ final class _StubMastodonInterceptor extends Interceptor {
           ),
         );
         return;
-      case '/api/v1/statuses':
-        final body = Map<String, dynamic>.from(options.data as Map);
-        statusBodies.add(body);
-        _statusCounter += 1;
-        handler.resolve(
-          Response(
-            requestOptions: options,
-            statusCode: 200,
-            data: {
-              'id': 'scheduled-$_statusCounter',
-              'media_attachments': const [],
-              'params': {
-                'application_id': 0,
-                'text': body['status'] ?? '',
-                'visibility': body['visibility'] ?? 'public',
-                'with_rate_limit': false,
-                if (body['media_ids'] case final List<dynamic> mediaIds)
-                  'media_ids': mediaIds,
-              },
-              'scheduled_at': '2026-04-27T00:00:00.000Z',
-            },
-          ),
-        );
-        return;
     }
+
     handler.next(options);
   }
 
   String _mediaTypeFor(String filename) {
-    final lower = filename.toLowerCase();
-    if (lower.endsWith('.mp4')) {
-      return 'video';
-    }
+    if (filename.endsWith('.mp4')) return 'video';
     return 'image';
   }
 }
 
-final class _StubHttpClient extends http.BaseClient {
+final class _StubHttpClient implements http.Client {
   _StubHttpClient(this.responses);
 
   final Map<Uri, _StubHttpResponse> responses;
 
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final response = responses[request.url];
+  Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
+    final response = responses[url];
     if (response == null) {
-      throw StateError('Unexpected HTTP request for ${request.url}');
+      return http.Response('', 404);
     }
-    return http.StreamedResponse(
-      Stream<Uint8List>.value(Uint8List.fromList(response.body)),
-      response.statusCode,
+    return http.Response.bytes(
+      response.body,
+      200,
       headers: response.headers,
-      request: request,
     );
   }
+
+  @override
+  void close() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _StubHttpResponse {

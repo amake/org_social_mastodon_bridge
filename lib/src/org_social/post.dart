@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+
 enum OrgSocialMediaKind { image, video }
 
 final class OrgSocialMediaCandidate {
@@ -30,6 +33,7 @@ final class OrgSocialPost {
     required this.text,
     required this.publishedAt,
     required this.headline,
+    required this.orgMarkup,
     this.headlineId,
     this.language,
     this.contentWarning,
@@ -45,6 +49,7 @@ final class OrgSocialPost {
   final String text;
   final DateTime publishedAt;
   final String headline;
+  final String orgMarkup;
   final String? headlineId;
   final String? language;
   final String? contentWarning;
@@ -54,4 +59,6 @@ final class OrgSocialPost {
   final Uri? canonicalUrl;
   final List<OrgSocialMediaCandidate> mediaCandidates;
   final OrgSocialPoll? poll;
+
+  String get contentHash => sha256.convert(utf8.encode(orgMarkup)).toString();
 }

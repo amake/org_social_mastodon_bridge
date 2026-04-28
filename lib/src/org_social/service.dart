@@ -98,6 +98,7 @@ class OrgSocialService {
       text: rendered.text,
       publishedAt: _parsePublishedAt(sourceId),
       headline: headline ?? sourceId,
+      orgMarkup: section.toMarkup(),
       headlineId: headlineId,
       language: _firstProperty(section, ':LANG:'),
       contentWarning: _firstProperty(section, ':CONTENT_WARNING:'),

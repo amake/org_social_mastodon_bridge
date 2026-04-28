@@ -34,16 +34,22 @@ class SyncService {
     logger.info('Starting sync run');
     final existingState = await stateStore.load();
     final posts = await feedService.fetchPosts(config.source);
-    final unseen = posts
-        .where((post) => !existingState.containsSourceId(post.sourceId))
-        .take(config.sync.maxPostsPerRun)
-        .toList(growable: false);
+
+    final unseen =
+        posts
+            .where((post) {
+              final record = existingState.records[post.sourceId];
+              if (record == null) return true;
+              return record.contentHash != post.contentHash;
+            })
+            .toList(growable: false);
+
     logger.info(
-      'Loaded ${posts.length} posts, found ${unseen.length} unseen '
+      'Loaded ${posts.length} posts, found ${unseen.length} unseen or modified '
       '(dry_run=${config.sync.dryRun})',
     );
 
-    if (!config.sync.dryRun) {
+    if (!config.sync.dryRun && unseen.isNotEmpty) {
       logger.debug('Verifying Mastodon credentials');
       await mastodonClient.verifyCredentials();
     }
@@ -52,31 +58,84 @@ class SyncService {
     var postedCount = 0;
 
     for (final post in unseen) {
-      if (config.sync.dryRun) {
-        logger.info('Dry run: would post ${post.sourceId} (${post.headline})');
-        continue;
+      if (config.sync.maxPostsPerRun != null &&
+          postedCount >= config.sync.maxPostsPerRun!) {
+        logger.info('Reached max posts per run limit, stopping');
+        break;
       }
-      logger.info('Posting ${post.sourceId} (${post.headline})');
-      final result = await mastodonClient.postStatus(
-        _withOptionalLink(post, config.sync.includeLink),
-      );
-      state = state.withRecord(
-        SyncRecord(
-          sourceId: post.sourceId,
-          mastodonStatusId: result.statusId,
-          mastodonUrl: result.url?.toString(),
-          postedAt: DateTime.now().toUtc(),
-        ),
-      );
+
+      final existingRecord = state.records[post.sourceId];
+      if (existingRecord != null) {
+        if (existingRecord.contentHash == null) {
+          logger.debug('Initializing content hash for ${post.sourceId}');
+          state = state.withRecord(
+            SyncRecord(
+              sourceId: existingRecord.sourceId,
+              mastodonStatusId: existingRecord.mastodonStatusId,
+              postedAt: existingRecord.postedAt,
+              mastodonUrl: existingRecord.mastodonUrl,
+              contentHash: post.contentHash,
+              mediaIds: existingRecord.mediaIds,
+            ),
+          );
+          await stateStore.save(state);
+          continue;
+        }
+
+        if (config.sync.dryRun) {
+          logger.info('Dry run: would update ${post.sourceId}');
+          continue;
+        }
+
+        logger.info('Updating status ${existingRecord.mastodonStatusId} for ${post.sourceId}');
+        final result = await mastodonClient.updateStatus(
+          existingRecord.mastodonStatusId,
+          _withOptionalLink(post, config.sync.includeLink),
+          existingMediaIds: existingRecord.mediaIds,
+        );
+
+        state = state.withRecord(
+          SyncRecord(
+            sourceId: post.sourceId,
+            mastodonStatusId: result.statusId,
+            postedAt: DateTime.now().toUtc(),
+            mastodonUrl: result.url?.toString(),
+            contentHash: post.contentHash,
+            mediaIds: result.mediaIds,
+          ),
+        );
+        postedCount += 1;
+        logger.info('Updated status as Mastodon ID ${result.statusId}');
+      } else {
+        if (config.sync.dryRun) {
+          logger.info('Dry run: would post ${post.sourceId}');
+          continue;
+        }
+
+        logger.info('Posting new status for ${post.sourceId}');
+        final result = await mastodonClient.postStatus(
+          _withOptionalLink(post, config.sync.includeLink),
+        );
+
+        state = state.withRecord(
+          SyncRecord(
+            sourceId: post.sourceId,
+            mastodonStatusId: result.statusId,
+            postedAt: DateTime.now().toUtc(),
+            mastodonUrl: result.url?.toString(),
+            contentHash: post.contentHash,
+            mediaIds: result.mediaIds,
+          ),
+        );
+        postedCount += 1;
+        logger.info('Posted as Mastodon ID ${result.statusId}');
+      }
+
       await stateStore.save(state);
-      postedCount += 1;
-      logger.info(
-        'Posted ${post.sourceId} as Mastodon status ${result.statusId}',
-      );
     }
 
     logger.info(
-      'Sync finished: seen=${posts.length} unseen=${unseen.length} '
+      'Sync finished: seen=${posts.length} candidates=${unseen.length} '
       'posted=$postedCount dry_run=${config.sync.dryRun}',
     );
     return SyncResult(
@@ -101,6 +160,10 @@ class SyncService {
       canonicalUrl: post.canonicalUrl,
       mediaCandidates: post.mediaCandidates,
       poll: post.poll,
+      visibility: post.visibility,
+      tags: post.tags,
+      mood: post.mood,
+      orgMarkup: post.orgMarkup,
       text: '${post.text}\n\n${post.canonicalUrl}',
     );
   }
