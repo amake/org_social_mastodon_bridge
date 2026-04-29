@@ -15,20 +15,9 @@ final class OrgSocialRenderedContent {
 }
 
 class OrgSocialRenderer {
-  static const _imageExtensions = {
-    '.jpg',
-    '.jpeg',
-    '.png',
-    '.gif',
-    '.webp',
-  };
+  static const _imageExtensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'};
 
-  static const _videoExtensions = {
-    '.mp4',
-    '.webm',
-    '.mov',
-    '.m4v',
-  };
+  static const _videoExtensions = {'.mp4', '.webm', '.mov', '.m4v'};
 
   OrgSocialRenderedContent renderSection(
     OrgSection section, {
@@ -72,8 +61,9 @@ class OrgSocialRenderer {
       if (item.checkbox == null) {
         return null;
       }
-      final body =
-          item.body == null ? '' : _renderInline(item.body!, collector).trim();
+      final body = item.body == null
+          ? ''
+          : _renderInline(item.body!, collector).trim();
       if (body.isNotEmpty) {
         options.add(body);
       }
@@ -86,10 +76,11 @@ class OrgSocialRenderer {
       OrgParagraph(:final body) => _renderInline(body, collector).trim(),
       OrgList() => _renderList(node, collector),
       OrgDrawer() => '',
-      OrgContent(:final children) => children
-          .map((child) => _renderBlock(child, collector))
-          .where((block) => block.trim().isNotEmpty)
-          .join('\n\n'),
+      OrgContent(:final children) =>
+        children
+            .map((child) => _renderBlock(child, collector))
+            .where((block) => block.trim().isNotEmpty)
+            .join('\n\n'),
       OrgMeta() => '',
       _ => node.toPlainText().trim(),
     };
@@ -117,26 +108,25 @@ class OrgSocialRenderer {
 
   String _renderInline(OrgNode node, _MediaCollector collector) {
     return switch (node) {
-      OrgContent(:final children) => children
-          .map((child) => _renderInline(child, collector))
-          .join(),
+      OrgContent(:final children) =>
+        children.map((child) => _renderInline(child, collector)).join(),
       OrgPlainText(:final content) => content,
       OrgPlainLink(:final location) => _renderLink(
-          location: location,
-          description: null,
-          collector: collector,
-        ),
+        location: location,
+        description: null,
+        collector: collector,
+      ),
       OrgBracketLink(:final location, :final description) => _renderLink(
-          location: location,
-          description: description == null
-              ? null
-              : _renderInline(description, collector).trim(),
-          collector: collector,
-        ),
+        location: location,
+        description: description == null
+            ? null
+            : _renderInline(description, collector).trim(),
+        collector: collector,
+      ),
       OrgMarkup(:final content, :final style) => _wrapMarkup(
-          style: style,
-          text: _renderInline(content, collector),
-        ),
+        style: style,
+        text: _renderInline(content, collector),
+      ),
       _ => node.toPlainText(),
     };
   }

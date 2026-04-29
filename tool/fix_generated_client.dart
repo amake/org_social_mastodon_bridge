@@ -9,10 +9,11 @@ void main() {
     'generated/mastodon_openapi/lib/src/model/create_report_request.dart': {
       "..category = 'other'": '..category = ReportCategoryEnum.other',
     },
-    'generated/mastodon_openapi/lib/src/model/post_status_reblog_request.dart': {
-      "b..visibility = 'public';":
-          'b..visibility = StatusVisibilityEnum.public;',
-    },
+    'generated/mastodon_openapi/lib/src/model/post_status_reblog_request.dart':
+        {
+          "b..visibility = 'public';":
+              'b..visibility = StatusVisibilityEnum.public;',
+        },
   };
 
   for (final entry in replacements.entries) {

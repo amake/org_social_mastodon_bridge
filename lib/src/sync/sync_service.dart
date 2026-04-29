@@ -35,20 +35,19 @@ class SyncService {
     final existingState = await stateStore.load();
     final posts = await feedService.fetchPosts(config.source);
 
-    final unseen =
-        posts
-            .where((post) {
-              final record = existingState.records[post.sourceId];
-              if (record == null) return true;
-              final currentPost = _withOptionalLink(post, config.sync.includeLink);
-              if (record.contentHash != currentPost.contentHash) return true;
-              if (record.renderedHash != null &&
-                  record.renderedHash != currentPost.renderedHash) {
-                return true;
-              }
-              return false;
-            })
-            .toList(growable: false);
+    final unseen = posts
+        .where((post) {
+          final record = existingState.records[post.sourceId];
+          if (record == null) return true;
+          final currentPost = _withOptionalLink(post, config.sync.includeLink);
+          if (record.contentHash != currentPost.contentHash) return true;
+          if (record.renderedHash != null &&
+              record.renderedHash != currentPost.renderedHash) {
+            return true;
+          }
+          return false;
+        })
+        .toList(growable: false);
 
     logger.info(
       'Loaded ${posts.length} posts, found ${unseen.length} unseen or modified '

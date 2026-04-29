@@ -84,14 +84,11 @@ Photos:
         'https://example.com/c.mp4',
       ],
     );
-    expect(
-      posts.single.mediaCandidates.map((candidate) => candidate.kind),
-      [
-        OrgSocialMediaKind.image,
-        OrgSocialMediaKind.image,
-        OrgSocialMediaKind.video,
-      ],
-    );
+    expect(posts.single.mediaCandidates.map((candidate) => candidate.kind), [
+      OrgSocialMediaKind.image,
+      OrgSocialMediaKind.image,
+      OrgSocialMediaKind.video,
+    ]);
   });
 
   test('uses headline timestamp as canonical source id when present', () {
@@ -153,8 +150,10 @@ Should be skipped
     expect(posts, isEmpty);
   });
 
-  test('extracts poll information when :POLL_END: and checkbox list are present', () {
-    const content = '''
+  test(
+    'extracts poll information when :POLL_END: and checkbox list are present',
+    () {
+      const content = '''
 * Posts
 ** 2025-04-28T12:00:00+0100
 :PROPERTIES:
@@ -168,21 +167,29 @@ What is your favorite color?
 - [ ] Green
 ''';
 
-    final service = OrgSocialService();
-    final posts = service.parsePosts(
-      feedUrl: Uri.parse('https://example.com/social.org'),
-      content: content,
-    );
+      final service = OrgSocialService();
+      final posts = service.parsePosts(
+        feedUrl: Uri.parse('https://example.com/social.org'),
+        content: content,
+      );
 
-    final post = posts.single;
-    expect(post.poll, isNotNull);
-    expect(post.poll!.endsAt.isAtSameMomentAs(DateTime.parse('2025-04-29T11:00:00Z')), isTrue);
-    expect(post.poll!.options, ['Red', 'Blue', 'Green']);
-    expect(post.text, 'What is your favorite color?');
-  });
+      final post = posts.single;
+      expect(post.poll, isNotNull);
+      expect(
+        post.poll!.endsAt.isAtSameMomentAs(
+          DateTime.parse('2025-04-29T11:00:00Z'),
+        ),
+        isTrue,
+      );
+      expect(post.poll!.options, ['Red', 'Blue', 'Green']);
+      expect(post.text, 'What is your favorite color?');
+    },
+  );
 
-  test('extracts alt text from #+CAPTION: and prefers it over link description', () {
-    const content = '''
+  test(
+    'extracts alt text from #+CAPTION: and prefers it over link description',
+    () {
+      const content = '''
 * Posts
 ** 2025-04-28T12:00:00+0100
 
@@ -195,20 +202,21 @@ https://example.com/dog.png
 [[https://example.com/bird.gif][A singing bird]]
 ''';
 
-    final service = OrgSocialService();
-    final posts = service.parsePosts(
-      feedUrl: Uri.parse('https://example.com/social.org'),
-      content: content,
-    );
+      final service = OrgSocialService();
+      final posts = service.parsePosts(
+        feedUrl: Uri.parse('https://example.com/social.org'),
+        content: content,
+      );
 
-    final candidates = posts.single.mediaCandidates;
-    expect(candidates, hasLength(3));
-    expect(candidates[0].altText, 'A majestic cat');
-    expect(candidates[1].altText, 'A playful dog');
-    expect(candidates[2].altText, 'A singing bird');
-    // Ensure #+CAPTION: is not in the body text
-    expect(posts.single.text, isNot(contains('#+CAPTION:')));
-  });
+      final candidates = posts.single.mediaCandidates;
+      expect(candidates, hasLength(3));
+      expect(candidates[0].altText, 'A majestic cat');
+      expect(candidates[1].altText, 'A playful dog');
+      expect(candidates[2].altText, 'A singing bird');
+      // Ensure #+CAPTION: is not in the body text
+      expect(posts.single.text, isNot(contains('#+CAPTION:')));
+    },
+  );
 
   test('extracts :VISIBILITY: property', () {
     const content = '''

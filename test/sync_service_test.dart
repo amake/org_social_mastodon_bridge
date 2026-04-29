@@ -196,7 +196,10 @@ void main() {
 
     expect(mastodon.updateCalls, 1);
     expect(mastodon.postedPosts.single.text, 'Edited');
-    expect(stateStore.state.records['edit-me']!.contentHash, editedPost.contentHash);
+    expect(
+      stateStore.state.records['edit-me']!.contentHash,
+      editedPost.contentHash,
+    );
   });
 
   test('syncs posts when rendering changes but source does not', () async {
@@ -240,7 +243,10 @@ void main() {
     );
 
     expect(mastodon.updateCalls, 1);
-    expect(stateStore.state.records['render-change']!.renderedHash, post.renderedHash);
+    expect(
+      stateStore.state.records['render-change']!.renderedHash,
+      post.renderedHash,
+    );
   });
 }
 

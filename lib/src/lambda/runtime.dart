@@ -27,10 +27,13 @@ class LambdaRuntime {
           logger.debug('Invocation event: ${json.encode(event)}');
 
           AppConfig? envConfig;
-          final configJson = Platform.environment['ORG_SOCIAL_MASTODON_BRIDGE_CONFIG_JSON'];
+          final configJson =
+              Platform.environment['ORG_SOCIAL_MASTODON_BRIDGE_CONFIG_JSON'];
           if (configJson != null && configJson.isNotEmpty) {
             logger.debug('Loading config from environment variable');
-            envConfig = AppConfig.fromJson(json.decode(configJson).cast<String, Object?>());
+            envConfig = AppConfig.fromJson(
+              json.decode(configJson).cast<String, Object?>(),
+            );
           }
 
           final result = await _runner.run(

@@ -12,9 +12,7 @@ import 'package:openapi_generator_annotations/openapi_generator_annotations.dart
     path:
         'https://raw.githubusercontent.com/abraham/mastodon-openapi/main/dist/schema.json',
   ),
-  nameMappings: {
-    'update': 'updateValue',
-  },
+  nameMappings: {'update': 'updateValue'},
   generatorName: Generator.dio,
   outputDirectory: 'generated/mastodon_openapi',
   fetchDependencies: true,

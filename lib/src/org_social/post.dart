@@ -70,17 +70,15 @@ final class OrgSocialPost {
       'vis': visibility,
       'tags': tags,
       'mood': mood,
-      'poll':
-          poll == null
-              ? null
-              : {
-                'options': poll!.options,
-                'endsAt': poll!.endsAt.toUtc().toIso8601String(),
-              },
-      'media':
-          mediaCandidates
-              .map((m) => {'url': m.url.toString(), 'alt': m.altText})
-              .toList(),
+      'poll': poll == null
+          ? null
+          : {
+              'options': poll!.options,
+              'endsAt': poll!.endsAt.toUtc().toIso8601String(),
+            },
+      'media': mediaCandidates
+          .map((m) => {'url': m.url.toString(), 'alt': m.altText})
+          .toList(),
     };
     return sha256.convert(utf8.encode(json.encode(data))).toString();
   }

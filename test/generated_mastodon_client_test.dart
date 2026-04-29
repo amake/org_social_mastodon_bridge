@@ -16,9 +16,8 @@ void main() {
         'sync': {'dry_run': false, 'max_posts_per_run': 10},
         'state': {'type': 'file', 'path': 'state.json'},
       }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
       httpClient: _StubHttpClient({
         Uri.parse('https://cdn.example/1.jpg'): _StubHttpResponse(
           body: [1, 2, 3],
@@ -76,7 +75,12 @@ void main() {
     );
 
     expect(result.statusId, 'scheduled-1');
-    expect(interceptor.uploadedFilenames, ['1.jpg', '2.png', '3.webp', '4.gif']);
+    expect(interceptor.uploadedFilenames, [
+      '1.jpg',
+      '2.png',
+      '3.webp',
+      '4.gif',
+    ]);
     expect(interceptor.statusBodies.single['media_ids'], [
       'media-1',
       'media-2',
@@ -86,52 +90,54 @@ void main() {
     expect(interceptor.statusBodies.single['status'], 'hello world');
   });
 
-  test('keeps only the first video attachment and ignores later media', () async {
-    final interceptor = _StubMastodonInterceptor();
-    final client = GeneratedMastodonClient(
-      AppConfig.fromJson({
-        'source': {'feed_url': 'https://example.com/social.org'},
-        'mastodon': {
-          'base_url': 'https://mastodon.example',
-          'access_token': 'token',
-        },
-        'sync': {'dry_run': false, 'max_posts_per_run': 10},
-        'state': {'type': 'file', 'path': 'state.json'},
-      }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
-      httpClient: _StubHttpClient({
-        Uri.parse('https://cdn.example/movie.mp4'): _StubHttpResponse(
-          body: [1, 2, 3],
-          headers: {'content-type': 'video/mp4'},
+  test(
+    'keeps only the first video attachment and ignores later media',
+    () async {
+      final interceptor = _StubMastodonInterceptor();
+      final client = GeneratedMastodonClient(
+        AppConfig.fromJson({
+          'source': {'feed_url': 'https://example.com/social.org'},
+          'mastodon': {
+            'base_url': 'https://mastodon.example',
+            'access_token': 'token',
+          },
+          'sync': {'dry_run': false, 'max_posts_per_run': 10},
+          'state': {'type': 'file', 'path': 'state.json'},
+        }).mastodon,
+        dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+          ..interceptors.add(interceptor),
+        httpClient: _StubHttpClient({
+          Uri.parse('https://cdn.example/movie.mp4'): _StubHttpResponse(
+            body: [1, 2, 3],
+            headers: {'content-type': 'video/mp4'},
+          ),
+        }),
+      );
+
+      await client.postStatus(
+        OrgSocialPost(
+          sourceId: '2025-04-28T12:00:00+0100',
+          text: 'test post',
+          publishedAt: DateTime.utc(2025, 4, 28, 11),
+          headline: '2025-04-28T12:00:00+0100',
+          orgMarkup: '',
+          mediaCandidates: [
+            OrgSocialMediaCandidate(
+              url: Uri.parse('https://cdn.example/movie.mp4'),
+              kind: OrgSocialMediaKind.video,
+            ),
+            OrgSocialMediaCandidate(
+              url: Uri.parse('https://cdn.example/after.jpg'),
+              kind: OrgSocialMediaKind.image,
+            ),
+          ],
         ),
-      }),
-    );
+      );
 
-    await client.postStatus(
-      OrgSocialPost(
-        sourceId: '2025-04-28T12:00:00+0100',
-        text: 'test post',
-        publishedAt: DateTime.utc(2025, 4, 28, 11),
-        headline: '2025-04-28T12:00:00+0100',
-        orgMarkup: '',
-        mediaCandidates: [
-          OrgSocialMediaCandidate(
-            url: Uri.parse('https://cdn.example/movie.mp4'),
-            kind: OrgSocialMediaKind.video,
-          ),
-          OrgSocialMediaCandidate(
-            url: Uri.parse('https://cdn.example/after.jpg'),
-            kind: OrgSocialMediaKind.image,
-          ),
-        ],
-      ),
-    );
-
-    expect(interceptor.uploadedFilenames, ['movie.mp4']);
-    expect(interceptor.statusBodies.single['media_ids'], ['media-1']);
-  });
+      expect(interceptor.uploadedFilenames, ['movie.mp4']);
+      expect(interceptor.statusBodies.single['media_ids'], ['media-1']);
+    },
+  );
 
   test('posts a poll status and ignores media when both present', () async {
     final interceptor = _StubMastodonInterceptor();
@@ -145,9 +151,8 @@ void main() {
         'sync': {'dry_run': false, 'max_posts_per_run': 10},
         'state': {'type': 'file', 'path': 'state.json'},
       }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
     );
 
     final endsAt = DateTime.now().add(const Duration(hours: 1));
@@ -188,9 +193,8 @@ void main() {
         'sync': {'dry_run': false, 'max_posts_per_run': 10},
         'state': {'type': 'file', 'path': 'state.json'},
       }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
       httpClient: _StubHttpClient({
         Uri.parse('https://cdn.example/mystery'): _StubHttpResponse(
           body: [0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0], // PNG magic bytes
@@ -233,9 +237,8 @@ void main() {
         'sync': {'dry_run': false, 'max_posts_per_run': 10},
         'state': {'type': 'file', 'path': 'state.json'},
       }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
     );
 
     await client.postStatus(
@@ -276,9 +279,8 @@ void main() {
         'sync': {'dry_run': false, 'max_posts_per_run': 10},
         'state': {'type': 'file', 'path': 'state.json'},
       }).mastodon,
-      dio: Dio(
-        BaseOptions(baseUrl: 'https://mastodon.example'),
-      )..interceptors.add(interceptor),
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
     );
 
     await client.postStatus(
@@ -324,7 +326,8 @@ final class _StubMastodonInterceptor extends Interceptor {
             'created_at': '2026-04-27T00:00:00.000Z',
             'content': '',
             'visibility': body['visibility'] ?? 'public',
-            'media_attachments': (body['media_ids'] as List<dynamic>?)
+            'media_attachments':
+                (body['media_ids'] as List<dynamic>?)
                     ?.map((id) => {'id': id, 'type': 'image', 'url': null})
                     .toList() ??
                 [],
@@ -390,11 +393,7 @@ final class _StubHttpClient implements http.Client {
     if (response == null) {
       return http.Response('', 404);
     }
-    return http.Response.bytes(
-      response.body,
-      200,
-      headers: response.headers,
-    );
+    return http.Response.bytes(response.body, 200, headers: response.headers);
   }
 
   @override
@@ -405,10 +404,7 @@ final class _StubHttpClient implements http.Client {
 }
 
 final class _StubHttpResponse {
-  const _StubHttpResponse({
-    required this.body,
-    required this.headers,
-  });
+  const _StubHttpResponse({required this.body, required this.headers});
 
   final List<int> body;
   final Map<String, String> headers;

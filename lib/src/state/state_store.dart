@@ -26,8 +26,7 @@ final class SyncRecord {
     mastodonUrl: json['mastodon_url'] as String?,
     contentHash: json['content_hash'] as String?,
     renderedHash: json['rendered_hash'] as String?,
-    mediaIds:
-        (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
+    mediaIds: (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
   );
 
   final String sourceId;

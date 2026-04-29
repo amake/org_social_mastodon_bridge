@@ -14,14 +14,15 @@ class GeneratedMastodonClient implements MastodonClient {
   GeneratedMastodonClient(this.config, {Dio? dio, http.Client? httpClient})
     : _api = generated.MastodonOpenapi(
         basePathOverride: config.baseUrl.toString(),
-        dio: dio ??
+        dio:
+            dio ??
             Dio(
-          BaseOptions(
-            baseUrl: config.baseUrl.toString(),
-            connectTimeout: const Duration(seconds: 10),
-            receiveTimeout: const Duration(seconds: 10),
-          ),
-        ),
+              BaseOptions(
+                baseUrl: config.baseUrl.toString(),
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 10),
+              ),
+            ),
       ),
       _httpClient = httpClient ?? http.Client() {
     logger.debug('Configured Mastodon client for ${config.baseUrl}');
@@ -80,14 +81,9 @@ class GeneratedMastodonClient implements MastodonClient {
       mediaIds.add(uploaded.id);
     }
 
-    final request =
-        mediaIds.isEmpty
-            ? _buildTextRequest(post, appendPollOptions: poll != null)
-            : _buildMediaRequest(
-              post,
-              mediaIds,
-              appendPollOptions: poll != null,
-            );
+    final request = mediaIds.isEmpty
+        ? _buildTextRequest(post, appendPollOptions: poll != null)
+        : _buildMediaRequest(post, mediaIds, appendPollOptions: poll != null);
 
     return _sendRequest(post.sourceId, request);
   }
@@ -184,25 +180,23 @@ class GeneratedMastodonClient implements MastodonClient {
   ) {
     final poll = post.poll!;
     final pollParams = generated.UpdateStatusRequestPoll(
-      (builder) =>
-          builder
-            ..options.addAll(poll.options)
-            ..expiresIn = expiresIn,
+      (builder) => builder
+        ..options.addAll(poll.options)
+        ..expiresIn = expiresIn,
     );
 
     final pollStatus = generated.PollStatus(
-      (builder) =>
-          builder
-            ..poll = pollParams.toBuilder()
-            ..status = _buildFinalStatusText(post)
-            ..visibility = _visibilityFor(post)
-            ..language = post.language ?? config.language
-            ..spoilerText = post.contentWarning,
+      (builder) => builder
+        ..poll = pollParams.toBuilder()
+        ..status = _buildFinalStatusText(post)
+        ..visibility = _visibilityFor(post)
+        ..language = post.language ?? config.language
+        ..spoilerText = post.contentWarning,
     );
 
     return generated.CreateStatusRequest(
-      (builder) =>
-          builder.oneOf = OneOf.fromValue3<
+      (builder) => builder.oneOf =
+          OneOf.fromValue3<
             generated.TextStatus,
             generated.MediaStatus,
             generated.PollStatus
@@ -215,16 +209,18 @@ class GeneratedMastodonClient implements MastodonClient {
     bool appendPollOptions = false,
   }) {
     final textStatus = generated.TextStatus(
-      (builder) =>
-          builder
-            ..status = _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
-            ..visibility = _visibilityFor(post)
-            ..language = post.language ?? config.language
-            ..spoilerText = post.contentWarning,
+      (builder) => builder
+        ..status = _buildFinalStatusText(
+          post,
+          appendPollOptions: appendPollOptions,
+        )
+        ..visibility = _visibilityFor(post)
+        ..language = post.language ?? config.language
+        ..spoilerText = post.contentWarning,
     );
     final request = generated.CreateStatusRequest(
-      (builder) =>
-          builder.oneOf = OneOf.fromValue3<
+      (builder) => builder.oneOf =
+          OneOf.fromValue3<
             generated.TextStatus,
             generated.MediaStatus,
             generated.PollStatus
@@ -243,17 +239,16 @@ class GeneratedMastodonClient implements MastodonClient {
       appendPollOptions: appendPollOptions,
     );
     final mediaStatus = generated.MediaStatus(
-      (builder) =>
-          builder
-            ..mediaIds.addAll(mediaIds)
-            ..status = statusText
-            ..visibility = _visibilityFor(post)
-            ..language = post.language ?? config.language
-            ..spoilerText = post.contentWarning,
+      (builder) => builder
+        ..mediaIds.addAll(mediaIds)
+        ..status = statusText
+        ..visibility = _visibilityFor(post)
+        ..language = post.language ?? config.language
+        ..spoilerText = post.contentWarning,
     );
     return generated.CreateStatusRequest(
-      (builder) =>
-          builder.oneOf = OneOf.fromValue3<
+      (builder) => builder.oneOf =
+          OneOf.fromValue3<
             generated.TextStatus,
             generated.MediaStatus,
             generated.PollStatus
@@ -266,18 +261,18 @@ class GeneratedMastodonClient implements MastodonClient {
     List<String>? mediaIds,
     bool appendPollOptions = false,
   }) {
-    return generated.UpdateStatusRequest(
-      (builder) {
-        builder
-          ..status =
-              _buildFinalStatusText(post, appendPollOptions: appendPollOptions)
-          ..language = post.language ?? config.language
-          ..spoilerText = post.contentWarning;
-        if (mediaIds != null) {
-          builder.mediaIds.addAll(mediaIds);
-        }
-      },
-    );
+    return generated.UpdateStatusRequest((builder) {
+      builder
+        ..status = _buildFinalStatusText(
+          post,
+          appendPollOptions: appendPollOptions,
+        )
+        ..language = post.language ?? config.language
+        ..spoilerText = post.contentWarning;
+      if (mediaIds != null) {
+        builder.mediaIds.addAll(mediaIds);
+      }
+    });
   }
 
   generated.UpdateStatusRequest _buildUpdatePollRequest(
@@ -286,19 +281,17 @@ class GeneratedMastodonClient implements MastodonClient {
   ) {
     final poll = post.poll!;
     final pollParams = generated.UpdateStatusRequestPoll(
-      (builder) =>
-          builder
-            ..options.addAll(poll.options)
-            ..expiresIn = expiresIn,
+      (builder) => builder
+        ..options.addAll(poll.options)
+        ..expiresIn = expiresIn,
     );
 
     return generated.UpdateStatusRequest(
-      (builder) =>
-          builder
-            ..poll = pollParams.toBuilder()
-            ..status = _buildFinalStatusText(post)
-            ..language = post.language ?? config.language
-            ..spoilerText = post.contentWarning,
+      (builder) => builder
+        ..poll = pollParams.toBuilder()
+        ..status = _buildFinalStatusText(post)
+        ..language = post.language ?? config.language
+        ..spoilerText = post.contentWarning,
     );
   }
 
@@ -383,7 +376,9 @@ class GeneratedMastodonClient implements MastodonClient {
         continue;
       }
       if (selected.length >= 4) {
-        logger.debug('Rejected ${candidate.url}: image attachment limit reached');
+        logger.debug(
+          'Rejected ${candidate.url}: image attachment limit reached',
+        );
         continue;
       }
       selected.add(candidate);
@@ -418,7 +413,9 @@ class GeneratedMastodonClient implements MastodonClient {
     );
     final uploaded = uploadResponse.data;
     if (uploaded == null) {
-      throw StateError('Mastodon returned an empty media response for $filename');
+      throw StateError(
+        'Mastodon returned an empty media response for $filename',
+      );
     }
     return uploaded;
   }
