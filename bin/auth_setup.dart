@@ -7,7 +7,7 @@ import 'package:mastodon_openapi/mastodon_openapi.dart' as generated;
 import 'package:org_social_mastodon_bridge/org_social_mastodon_bridge.dart';
 
 const _redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
-const _scopes = 'write:statuses profile';
+const _scopes = 'write:statuses write:media profile';
 const _defaultAppName = 'org_social_mastodon_bridge';
 
 Future<void> main(List<String> arguments) async {
