@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 import 'package:org_social_mastodon_bridge/org_social_mastodon_bridge.dart';

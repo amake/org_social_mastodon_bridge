@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../config/config.dart';
 import '../logging/logging.dart';
 import '../runner/bridge_runner.dart';
 
@@ -24,8 +25,17 @@ class LambdaRuntime {
         try {
           final event = _decodeJson(invocation.body);
           logger.debug('Invocation event: ${json.encode(event)}');
+
+          AppConfig? envConfig;
+          final configJson = Platform.environment['ORG_SOCIAL_MASTODON_BRIDGE_CONFIG_JSON'];
+          if (configJson != null && configJson.isNotEmpty) {
+            logger.debug('Loading config from environment variable');
+            envConfig = AppConfig.fromJson(json.decode(configJson).cast<String, Object?>());
+          }
+
           final result = await _runner.run(
-            configPath: _configPathFromEvent(event),
+            configPath: envConfig == null ? _configPathFromEvent(event) : null,
+            config: envConfig,
             dryRunOverride: _dryRunFromEvent(event),
           );
           logger.info(
@@ -126,9 +136,7 @@ class LambdaRuntime {
   }
 
   String _configPathFromEvent(Map<String, Object?> event) {
-    return (event['config_path'] as String?) ??
-        Platform.environment['ORG_SOCIAL_MASTODON_BRIDGE_CONFIG'] ??
-        'config.json';
+    return (event['config_path'] as String?) ?? 'config.json';
   }
 
   bool? _dryRunFromEvent(Map<String, Object?> event) =>

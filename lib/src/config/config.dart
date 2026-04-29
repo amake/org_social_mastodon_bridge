@@ -28,12 +28,17 @@ sealed class StateConfig {
       ),
     };
   }
+
+  Map<String, Object?> toJson();
 }
 
 final class FileStateConfig extends StateConfig {
   const FileStateConfig({required this.path});
 
   final String path;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'file', 'path': path};
 }
 
 final class S3StateConfig extends StateConfig {
@@ -46,6 +51,14 @@ final class S3StateConfig extends StateConfig {
   final String bucket;
   final String key;
   final String region;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 's3',
+    'bucket': bucket,
+    'key': key,
+    'region': region,
+  };
 }
 
 final class SourceConfig {
@@ -61,6 +74,8 @@ final class SourceConfig {
   };
 
   final Uri feedUrl;
+
+  Map<String, Object?> toJson() => {'feed_url': feedUrl.toString()};
 }
 
 final class MastodonConfig {
@@ -94,6 +109,13 @@ final class MastodonConfig {
   final String accessToken;
   final String visibility;
   final String? language;
+
+  Map<String, Object?> toJson() => {
+    'base_url': baseUrl.toString(),
+    'access_token': accessToken,
+    'visibility': visibility,
+    if (language != null) 'language': language,
+  };
 }
 
 final class SyncConfig {
@@ -119,6 +141,12 @@ final class SyncConfig {
         maxPostsPerRun: maxPostsPerRun ?? this.maxPostsPerRun,
         includeLink: includeLink ?? this.includeLink,
       );
+
+  Map<String, Object?> toJson() => {
+    'dry_run': dryRun,
+    'max_posts_per_run': maxPostsPerRun,
+    'include_link': includeLink,
+  };
 }
 
 final class LambdaConfig {
@@ -131,6 +159,11 @@ final class LambdaConfig {
 
   final String? functionName;
   final String architecture;
+
+  Map<String, Object?> toJson() => {
+    if (functionName != null) 'function_name': functionName,
+    'architecture': architecture,
+  };
 }
 
 final class AppConfig {
@@ -139,6 +172,7 @@ final class AppConfig {
     required this.mastodon,
     required this.sync,
     required this.state,
+    this.remoteState,
     required this.lambda,
   });
 
@@ -158,6 +192,11 @@ final class AppConfig {
           _ => const SyncConfig(),
         },
         state: StateConfig.fromJson(state.cast<String, Object?>()),
+        remoteState: switch (json) {
+          {'remote_state': Map<Object?, Object?> remote} =>
+            StateConfig.fromJson(remote.cast<String, Object?>()),
+          _ => null,
+        },
         lambda: switch (json) {
           {'lambda': Map<Object?, Object?> lambda} => LambdaConfig.fromJson(
             lambda.cast<String, Object?>(),
@@ -192,6 +231,7 @@ final class AppConfig {
   final MastodonConfig mastodon;
   final SyncConfig sync;
   final StateConfig state;
+  final StateConfig? remoteState;
   final LambdaConfig lambda;
 
   AppConfig copyWith({
@@ -199,14 +239,25 @@ final class AppConfig {
     MastodonConfig? mastodon,
     SyncConfig? sync,
     StateConfig? state,
+    StateConfig? remoteState,
     LambdaConfig? lambda,
   }) => AppConfig(
     source: source ?? this.source,
     mastodon: mastodon ?? this.mastodon,
     sync: sync ?? this.sync,
     state: state ?? this.state,
+    remoteState: remoteState ?? this.remoteState,
     lambda: lambda ?? this.lambda,
   );
+
+  Map<String, Object?> toJson() => {
+    'source': source.toJson(),
+    'mastodon': mastodon.toJson(),
+    'sync': sync.toJson(),
+    'state': state.toJson(),
+    if (remoteState != null) 'remote_state': remoteState!.toJson(),
+    'lambda': lambda.toJson(),
+  };
 }
 
 String _requireNonEmptyString(String value, String key) {

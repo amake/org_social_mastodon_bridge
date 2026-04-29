@@ -17,6 +17,12 @@
     "type": "file",
     "path": "state.json"
   },
+  "remote_state": {
+    "type": "s3",
+    "bucket": "REPLACE_ME_WITH_BUCKET_NAME",
+    "key": "state.json",
+    "region": "us-east-1"
+  },
   "lambda": {
     "function_name": "org-social-mastodon-bridge",
     "architecture": "arm64"

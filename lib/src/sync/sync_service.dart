@@ -64,8 +64,7 @@ class SyncService {
     var postedCount = 0;
 
     for (final post in unseen) {
-      if (config.sync.maxPostsPerRun != null &&
-          postedCount >= config.sync.maxPostsPerRun!) {
+      if (postedCount >= config.sync.maxPostsPerRun) {
         logger.info('Reached max posts per run limit, stopping');
         break;
       }

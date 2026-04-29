@@ -27,6 +27,7 @@ The important sections are:
 - `mastodon.access_token`: posting token for the target account
 - `sync.dry_run`: local safety switch
 - `state`: either a local JSON file or an S3 object for Lambda runs
+- `remote_state`: (Optional) S3 target configuration for transition to Lambda
 
 ## Common Commands
 
@@ -36,11 +37,13 @@ The important sections are:
 - `make analyze`
 - `make test`
 - `make run`
+- `make provision`
 - `make build`
 - `make deploy`
 - `make invoke`
 
 `make run` executes one sync pass against `config.json`.
+`make provision` transitions from local to Lambda: it uploads your local state file to the S3 bucket configured in `remote_state` and pushes your full configuration to the Lambda's environment variables.
 `make build` packages that same config into the Lambda ZIP as root-level
 `config.json`.
 `make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for

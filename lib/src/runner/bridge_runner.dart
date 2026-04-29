@@ -14,22 +14,25 @@ class BridgeRunner {
   final http.Client _httpClient;
 
   Future<SyncResult> run({
-    required String configPath,
+    String? configPath,
+    AppConfig? config,
     bool? dryRunOverride,
   }) async {
-    logger.debug('Loading config from $configPath');
-    var config = await AppConfig.loadFile(configPath);
+    if (config == null && configPath == null) {
+      throw ArgumentError('Either config or configPath must be provided');
+    }
+    var effectiveConfig = config ?? await AppConfig.loadFile(configPath!);
     if (dryRunOverride != null) {
       logger.debug('Overriding dry_run to $dryRunOverride');
-      config = config.copyWith(
-        sync: config.sync.copyWith(dryRun: dryRunOverride),
+      effectiveConfig = effectiveConfig.copyWith(
+        sync: effectiveConfig.sync.copyWith(dryRun: dryRunOverride),
       );
     }
     final syncService = SyncService(
       feedService: OrgSocialService(httpClient: _httpClient),
-      mastodonClient: GeneratedMastodonClient(config.mastodon),
-      stateStore: stateStoreFromConfig(config.state),
+      mastodonClient: GeneratedMastodonClient(effectiveConfig.mastodon),
+      stateStore: stateStoreFromConfig(effectiveConfig.state),
     );
-    return syncService.run(config);
+    return syncService.run(effectiveConfig);
   }
 }
