@@ -57,7 +57,7 @@ $(bootstrap): | dist
 
 $(payload): $(bootstrap) | dist
 	rm -f $@
-	zip -j -9 $(@) $(bootstrap) $(config)
+	cd dist && zip -9 lambda.zip bootstrap
 
 .PHONY: build
 build: ## Build the Lambda ZIP payload

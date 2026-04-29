@@ -44,8 +44,6 @@ The important sections are:
 
 `make run` executes one sync pass against `config.json`.
 `make provision` transitions from local to Lambda: it uploads your local state file to the S3 bucket configured in `remote_state` and pushes your full configuration to the Lambda's environment variables.
-`make build` packages that same config into the Lambda ZIP as root-level
-`config.json`.
 `make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for
 verbose local runs.
 
@@ -88,13 +86,8 @@ The Lambda deployment target is a ZIP package for the AWS OS-only runtime
 `provided.al2023`, using a root-level `bootstrap`.
 
 `make build` compiles `bin/bootstrap.dart` to a Linux executable and zips it as
-`dist/lambda.zip`, including `config.json` inside the ZIP. `make deploy`
-updates the configured Lambda function using the function name from
-`config.json`.
-
-If you want to package a different config file, use `make build
-config=/path/to/secret-config.json`. It will still be stored in the ZIP as
-`config.json`.
+`dist/lambda.zip`. `make deploy` updates the configured Lambda function using
+the function name from `config.json`.
 
 Requirements for deployment tooling:
 
