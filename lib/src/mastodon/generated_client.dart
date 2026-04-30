@@ -11,20 +11,24 @@ import '../org_social/post.dart';
 import 'client.dart';
 
 class GeneratedMastodonClient implements MastodonClient {
-  GeneratedMastodonClient(this.config, {Dio? dio, http.Client? httpClient})
-    : _api = generated.MastodonOpenapi(
-        basePathOverride: config.baseUrl.toString(),
-        dio:
-            dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: config.baseUrl.toString(),
-                connectTimeout: const Duration(seconds: 10),
-                receiveTimeout: const Duration(seconds: 10),
-              ),
-            ),
-      ),
-      _httpClient = httpClient ?? http.Client() {
+  GeneratedMastodonClient(
+    this.config, {
+    Dio? dio,
+    http.Client? httpClient,
+    this.mediaPollDelay = const Duration(seconds: 2),
+  }) : _api = generated.MastodonOpenapi(
+         basePathOverride: config.baseUrl.toString(),
+         dio:
+             dio ??
+             Dio(
+               BaseOptions(
+                 baseUrl: config.baseUrl.toString(),
+                 connectTimeout: const Duration(seconds: 10),
+                 receiveTimeout: const Duration(seconds: 10),
+               ),
+             ),
+       ),
+       _httpClient = httpClient ?? http.Client() {
     logger.debug('Configured Mastodon client for ${config.baseUrl}');
     _api.setOAuthToken('OAuth2', config.accessToken);
   }
@@ -32,6 +36,7 @@ class GeneratedMastodonClient implements MastodonClient {
   final MastodonConfig config;
   final generated.MastodonOpenapi _api;
   final http.Client _httpClient;
+  final Duration mediaPollDelay;
 
   generated.StatusVisibilityEnum get _visibility => switch (config.visibility) {
     'public' => generated.StatusVisibilityEnum.public,
@@ -428,10 +433,9 @@ class GeneratedMastodonClient implements MastodonClient {
 
   Future<generated.MediaAttachment> _waitForMedia(String mediaId) async {
     const maxRetries = 15;
-    const delay = Duration(seconds: 2);
 
     for (var i = 0; i < maxRetries; i++) {
-      await Future<void>.delayed(delay);
+      await Future<void>.delayed(mediaPollDelay);
       final response = await _api.getMediaApi().getMedia(id: mediaId);
       final attachment = response.data;
       if (attachment == null) {

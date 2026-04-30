@@ -18,6 +18,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
       httpClient: _StubHttpClient({
         Uri.parse('https://cdn.example/1.jpg'): _StubHttpResponse(
           body: [1, 2, 3],
@@ -106,6 +107,7 @@ void main() {
         }).mastodon,
         dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
           ..interceptors.add(interceptor),
+        mediaPollDelay: Duration.zero,
         httpClient: _StubHttpClient({
           Uri.parse('https://cdn.example/movie.mp4'): _StubHttpResponse(
             body: [1, 2, 3],
@@ -153,6 +155,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
     );
 
     final endsAt = DateTime.now().add(const Duration(hours: 1));
@@ -195,6 +198,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
       httpClient: _StubHttpClient({
         Uri.parse('https://cdn.example/mystery'): _StubHttpResponse(
           body: [0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0], // PNG magic bytes
@@ -239,6 +243,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
     );
 
     await client.postStatus(
@@ -281,6 +286,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
     );
 
     await client.postStatus(
@@ -316,6 +322,7 @@ void main() {
       }).mastodon,
       dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
         ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
     );
 
     await client.pinStatus('status123');
