@@ -13,7 +13,8 @@ const _redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
 // profile - read profile information
 const _scopes = 'write:statuses write:media write:accounts profile';
 const _defaultAppName = 'org_social_mastodon_bridge';
-const _defaultAppWebsite = 'https://github.com/amake/org_social_mastodon_bridge';
+const _defaultAppWebsite =
+    'https://github.com/amake/org_social_mastodon_bridge';
 
 Future<void> main(List<String> arguments) async {
   logger.debug('Auth CLI arguments: $arguments');
