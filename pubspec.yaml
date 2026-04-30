@@ -1,6 +1,7 @@
 name: org_social_mastodon_bridge
 description: Sync an Org Social feed to Mastodon.
 version: 0.1.0
+homepage: https://github.com/amake/org_social_mastodon_bridge
 publish_to: none
 
 environment:
