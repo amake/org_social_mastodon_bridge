@@ -77,7 +77,32 @@ Future<void> main(List<String> arguments) async {
 
   // 4. Update Lambda environment variables with "flattened" config
   print(
-    'Updating Lambda function ${lambdaConfig.functionName} configuration...',
+    'Fetching current Lambda function ${lambdaConfig.functionName} configuration...',
+  );
+
+  final getResult = await Process.run('aws', [
+    'lambda',
+    'get-function-configuration',
+    '--function-name',
+    lambdaConfig.functionName!,
+    '--region',
+    s3Config.region,
+  ]);
+
+  if (getResult.exitCode != 0) {
+    print('Error fetching Lambda configuration: ${getResult.stderr}');
+    exit(1);
+  }
+
+  final currentConfig =
+      json.decode(getResult.stdout as String) as Map<String, Object?>;
+  final existingEnv =
+      (currentConfig['Environment'] as Map<String, Object?>?)?['Variables']
+          as Map<String, Object?>? ??
+      {};
+
+  print(
+    'Updating Lambda configuration, preserving existing environment variables...',
   );
 
   // Manually construct the map to ensure remote_state is truly gone and state is remote.
@@ -87,10 +112,13 @@ Future<void> main(List<String> arguments) async {
 
   final fullConfigJson = json.encode(configMap);
 
-  // Use full JSON structure for --environment to avoid shell/CLI parsing issues with shorthand.
-  final envJson = json.encode({
-    'Variables': {'ORG_SOCIAL_MASTODON_BRIDGE_CONFIG_JSON': fullConfigJson},
-  });
+  // Merge our config into existing variables
+  final newVariables = Map<String, String>.from(
+    existingEnv.cast<String, String>(),
+  );
+  newVariables['ORG_SOCIAL_MASTODON_BRIDGE_CONFIG_JSON'] = fullConfigJson;
+
+  final envJson = json.encode({'Variables': newVariables});
 
   final envResult = await Process.run('aws', [
     'lambda',
