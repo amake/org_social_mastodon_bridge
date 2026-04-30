@@ -137,11 +137,14 @@ class OrgSocialRenderer {
     required _MediaCollector collector,
   }) {
     final trimmedDescription = description?.trim();
-    collector.maybeAdd(
-      location,
-      _classifyMedia(location),
-      altText: trimmedDescription,
-    );
+    final mediaKind = _classifyMedia(location);
+    collector.maybeAdd(location, mediaKind, altText: trimmedDescription);
+
+    if (mediaKind != null) {
+      // Return a unique placeholder for post-processing
+      return 'ORG_SOCIAL_MEDIA_CANDIDATE_${collector.candidates.length - 1}';
+    }
+
     if (trimmedDescription == null || trimmedDescription.isEmpty) {
       return location;
     }

@@ -74,7 +74,9 @@ class GeneratedMastodonClient implements MastodonClient {
       }
     }
 
-    final selectedMedia = _selectMediaCandidates(post.mediaCandidates);
+    final selectedMedia = OrgSocialPost.selectMediaCandidates(
+      post.mediaCandidates,
+    );
     final mediaIds = <String>[];
     for (final candidate in selectedMedia) {
       final uploaded = await _uploadMedia(candidate);
@@ -105,7 +107,9 @@ class GeneratedMastodonClient implements MastodonClient {
       }
     }
 
-    final selectedMedia = _selectMediaCandidates(post.mediaCandidates);
+    final selectedMedia = OrgSocialPost.selectMediaCandidates(
+      post.mediaCandidates,
+    );
     final mediaIds = <String>[];
 
     // If candidate count and existing media count match, assume they are the same
@@ -346,45 +350,6 @@ class GeneratedMastodonClient implements MastodonClient {
       );
     }
     throw StateError('Unexpected Mastodon response type ${value.runtimeType}');
-  }
-
-  List<OrgSocialMediaCandidate> _selectMediaCandidates(
-    List<OrgSocialMediaCandidate> candidates,
-  ) {
-    final selected = <OrgSocialMediaCandidate>[];
-    for (final candidate in candidates) {
-      if (selected.isEmpty) {
-        selected.add(candidate);
-        logger.debug(
-          'Accepted ${candidate.kind.name} attachment ${candidate.url}',
-        );
-        if (candidate.kind == OrgSocialMediaKind.video) {
-          break;
-        }
-        continue;
-      }
-
-      final selectedKind = selected.first.kind;
-      if (selectedKind == OrgSocialMediaKind.video) {
-        logger.debug('Rejected ${candidate.url}: video already selected');
-        break;
-      }
-      if (candidate.kind == OrgSocialMediaKind.video) {
-        logger.debug(
-          'Rejected ${candidate.url}: cannot mix video with prior images',
-        );
-        continue;
-      }
-      if (selected.length >= 4) {
-        logger.debug(
-          'Rejected ${candidate.url}: image attachment limit reached',
-        );
-        continue;
-      }
-      selected.add(candidate);
-      logger.debug('Accepted image attachment ${candidate.url}');
-    }
-    return selected;
   }
 
   Future<generated.MediaAttachment> _uploadMedia(

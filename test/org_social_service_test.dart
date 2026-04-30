@@ -73,8 +73,10 @@ Photos:
       content: content,
     );
 
-    expect(posts.single.text, contains('A (https://example.com/a.jpg)'));
-    expect(posts.single.text, contains('https://example.com/b.png'));
+    expect(posts.single.text, contains('[Image 1]'));
+    expect(posts.single.text, contains('[Image 2]'));
+    // Third one is video, and since we have images, only the images are selected.
+    // So the third one remains as a URL.
     expect(posts.single.text, contains('https://example.com/c.mp4'));
     expect(
       posts.single.mediaCandidates.map((candidate) => candidate.url.toString()),
@@ -89,6 +91,53 @@ Photos:
       OrgSocialMediaKind.image,
       OrgSocialMediaKind.video,
     ]);
+  });
+
+  test('removes media links at the end of the post', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+Look at this:
+[[https://example.com/image.jpg]]
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.text, 'Look at this:');
+    expect(posts.single.mediaCandidates, hasLength(1));
+  });
+
+  test('restores original rendering for unselected media', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+Photos:
+- [[https://example.com/1.jpg][One]]
+- [[https://example.com/2.jpg][Two]]
+- [[https://example.com/3.jpg][Three]]
+- [[https://example.com/4.jpg][Four]]
+- [[https://example.com/5.jpg][Five]]
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    final post = posts.single;
+    expect(post.mediaCandidates, hasLength(5));
+    // First 4 are selected and become placeholders/removed
+    // 5th is unselected and should be restored
+    expect(post.text, contains('Five (https://example.com/5.jpg)'));
+    expect(post.text, isNot(contains('One (https://example.com/1.jpg)')));
+    expect(post.text, contains('[Image 1]'));
   });
 
   test('uses headline timestamp as canonical source id when present', () {

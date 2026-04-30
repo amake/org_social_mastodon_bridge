@@ -82,4 +82,32 @@ final class OrgSocialPost {
     };
     return sha256.convert(utf8.encode(json.encode(data))).toString();
   }
+
+  static List<OrgSocialMediaCandidate> selectMediaCandidates(
+    List<OrgSocialMediaCandidate> candidates,
+  ) {
+    final selected = <OrgSocialMediaCandidate>[];
+    for (final candidate in candidates) {
+      if (selected.isEmpty) {
+        selected.add(candidate);
+        if (candidate.kind == OrgSocialMediaKind.video) {
+          break;
+        }
+        continue;
+      }
+
+      final selectedKind = selected.first.kind;
+      if (selectedKind == OrgSocialMediaKind.video) {
+        break;
+      }
+      if (candidate.kind == OrgSocialMediaKind.video) {
+        continue;
+      }
+      if (selected.length >= 4) {
+        continue;
+      }
+      selected.add(candidate);
+    }
+    return selected;
+  }
 }

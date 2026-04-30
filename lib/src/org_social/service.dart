@@ -89,13 +89,22 @@ class OrgSocialService {
       );
     }
 
+    final selectedMedia = OrgSocialPost.selectMediaCandidates(
+      rendered.mediaCandidates,
+    );
+    final processedText = _processMediaLinks(
+      rendered.text,
+      rendered.mediaCandidates,
+      selectedMedia,
+    );
+
     logger.debug(
       'Using source ID $sourceId '
       '(headline_preferred=${headlineId != null})',
     );
     return OrgSocialPost(
       sourceId: sourceId,
-      text: rendered.text,
+      text: processedText,
       publishedAt: _parsePublishedAt(sourceId),
       headline: headline ?? sourceId,
       orgMarkup: section.toMarkup(),
@@ -110,6 +119,53 @@ class OrgSocialService {
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,
     );
+  }
+
+  String _processMediaLinks(
+    String text,
+    List<OrgSocialMediaCandidate> allCandidates,
+    List<OrgSocialMediaCandidate> selectedCandidates,
+  ) {
+    var result = text;
+    final selectedSet = selectedCandidates.toSet();
+
+    // First, handle non-selected media or those that aren't at the very end.
+    for (var i = 0; i < allCandidates.length; i++) {
+      final placeholder = 'ORG_SOCIAL_MEDIA_CANDIDATE_$i';
+      final candidate = allCandidates[i];
+
+      if (!selectedSet.contains(candidate)) {
+        // If not selected for attachment, restore the original rendering
+        final render = candidate.altText != null
+            ? '${candidate.altText} (${candidate.url})'
+            : candidate.url.toString();
+        result = result.replaceAll(placeholder, render);
+        continue;
+      }
+
+      // It is a selected attachment.
+      final placeholderIndex = result.indexOf(placeholder);
+      if (placeholderIndex == -1) continue;
+
+      // Check if it's at the end (ignoring whitespace)
+      final after = result
+          .substring(placeholderIndex + placeholder.length)
+          .trim();
+      if (after.isEmpty) {
+        // It's at the end. Remove it and any preceding whitespace.
+        result = result.substring(0, placeholderIndex).trimRight();
+      } else {
+        // It's inline. Replace with a label.
+        final displayIndex = selectedCandidates.indexOf(candidate) + 1;
+        final label = switch (candidate.kind) {
+          OrgSocialMediaKind.video => '[Video $displayIndex]',
+          OrgSocialMediaKind.image => '[Image $displayIndex]',
+        };
+        result = result.replaceFirst(placeholder, label);
+      }
+    }
+
+    return result;
   }
 
   String? _firstProperty(OrgSection section, String key) {
