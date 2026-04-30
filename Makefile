@@ -32,6 +32,11 @@ auth:
 test: ## Run tests
 	dart test
 
+.PHONY: lint
+lint: ## Run linting
+lint: analyze
+	dart format --set-exit-if-changed .
+
 .PHONY: analyze
 analyze: ## Run static analysis
 	dart analyze
