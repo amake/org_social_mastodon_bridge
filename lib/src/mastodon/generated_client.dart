@@ -375,14 +375,15 @@ class GeneratedMastodonClient implements MastodonClient {
       );
     }
     final filename = _filenameFor(candidate.url);
+    final contentType = _contentTypeFor(response, filename);
     final multipartFile = MultipartFile.fromBytes(
       response.bodyBytes,
       filename: filename,
-      contentType: _contentTypeFor(response, filename),
+      contentType: contentType,
     );
     logger.debug(
       'Uploading ${candidate.kind.name} attachment ${candidate.url} as $filename '
-      '(${response.bodyBytes.length} bytes), altText=${candidate.altText}',
+      '(${response.bodyBytes.length} bytes; contentType=$contentType), altText=${candidate.altText}',
     );
     final uploadResponse = await _api.getMediaApi().createMediaV2(
       file: multipartFile,
@@ -394,7 +395,38 @@ class GeneratedMastodonClient implements MastodonClient {
         'Mastodon returned an empty media response for $filename',
       );
     }
+
+    if (uploaded.url == null) {
+      logger.debug('Media $filename is still processing; waiting...');
+      return _waitForMedia(uploaded.id);
+    }
+
     return uploaded;
+  }
+
+  Future<generated.MediaAttachment> _waitForMedia(String mediaId) async {
+    const maxRetries = 15;
+    const delay = Duration(seconds: 2);
+
+    for (var i = 0; i < maxRetries; i++) {
+      await Future<void>.delayed(delay);
+      final response = await _api.getMediaApi().getMedia(id: mediaId);
+      final attachment = response.data;
+      if (attachment == null) {
+        throw StateError(
+          'Mastodon returned an empty response for media $mediaId',
+        );
+      }
+      if (attachment.url != null) {
+        logger.debug('Media $mediaId processing complete');
+        return attachment;
+      }
+      logger.debug(
+        'Media $mediaId still processing (retry ${i + 1}/$maxRetries)...',
+      );
+    }
+
+    throw StateError('Timed out waiting for media $mediaId to be processed');
   }
 
   String _filenameFor(Uri url) {

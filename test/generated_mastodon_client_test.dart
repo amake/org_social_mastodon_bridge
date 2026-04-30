@@ -338,6 +338,22 @@ final class _StubMastodonInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path.startsWith('/api/v1/media/')) {
+      final id = options.path.split('/').last;
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'id': id,
+            'type': 'image',
+            'url': 'https://cdn.example/processed/$id.jpg',
+          },
+        ),
+      );
+      return;
+    }
+
     if (options.path == '/api/v1/statuses') {
       final body = options.data as Map<String, dynamic>;
       statusBodies.add(body);
