@@ -5,6 +5,8 @@
   "mastodon": {
     "base_url": "https://mastodon.social",
     "access_token": "REPLACE_ME",
+    "app_name": "org_social_mastodon_bridge",
+    "app_website": "https://github.com/amake/org_social_mastodon_bridge",
     "visibility": "public",
     "language": "en"
   },

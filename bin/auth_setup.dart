@@ -13,6 +13,7 @@ const _redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
 // profile - read profile information
 const _scopes = 'write:statuses write:media write:accounts profile';
 const _defaultAppName = 'org_social_mastodon_bridge';
+const _defaultAppWebsite = 'https://github.com/amake/org_social_mastodon_bridge';
 
 Future<void> main(List<String> arguments) async {
   logger.debug('Auth CLI arguments: $arguments');
@@ -37,18 +38,16 @@ Future<void> main(List<String> arguments) async {
     final root = (decoded as Map<Object?, Object?>).cast<String, Object?>();
     final mastodon = (root['mastodon'] as Map<Object?, Object?>)
         .cast<String, Object?>();
-    final source = (root['source'] as Map<Object?, Object?>)
-        .cast<String, Object?>();
     final baseUrl = Uri.parse(_requireString(mastodon, 'base_url'));
     final appName = switch (mastodon) {
       {'app_name': String appName} when appName.trim().isNotEmpty =>
         appName.trim(),
       _ => _defaultAppName,
     };
-    final website = switch (source) {
-      {'feed_url': String feedUrl} when feedUrl.trim().isNotEmpty =>
-        feedUrl.trim(),
-      _ => null,
+    final appWebsite = switch (mastodon) {
+      {'app_website': String website} when website.trim().isNotEmpty =>
+        website.trim(),
+      _ => _defaultAppWebsite,
     };
 
     final client = generated.MastodonOpenapi(
@@ -76,7 +75,7 @@ Future<void> main(List<String> arguments) async {
             ..clientName = appName
             ..redirectUris.replace(BuiltList<String>([_redirectUri]))
             ..scopes = _scopes
-            ..website = website,
+            ..website = appWebsite,
         ),
       );
       final app = response.data;
@@ -88,6 +87,7 @@ Future<void> main(List<String> arguments) async {
       mastodon['client_id'] = clientId;
       mastodon['client_secret'] = clientSecret;
       mastodon['app_name'] = appName;
+      mastodon['app_website'] = appWebsite;
       await _writeConfig(configFile, root);
       logger.debug('Stored client_id and client_secret in $configPath');
     }
@@ -130,6 +130,7 @@ Future<void> main(List<String> arguments) async {
     mastodon['client_id'] = clientId;
     mastodon['client_secret'] = clientSecret;
     mastodon['app_name'] = appName;
+    mastodon['app_website'] = appWebsite;
     await _writeConfig(configFile, root);
 
     logger.info('Updated $configPath with Mastodon credentials');

@@ -84,6 +84,7 @@ final class MastodonConfig {
     required this.accessToken,
     this.visibility = 'public',
     this.language,
+    this.appWebsite,
   });
 
   factory MastodonConfig.fromJson(Map<String, Object?> json) => switch (json) {
@@ -99,6 +100,10 @@ final class MastodonConfig {
           {'language': String language} => language,
           _ => null,
         },
+        appWebsite: switch (json) {
+          {'app_website': String website} => website,
+          _ => null,
+        },
       ),
     _ => throw const FormatException(
       'Expected mastodon.base_url and mastodon.access_token to be non-empty strings',
@@ -109,12 +114,14 @@ final class MastodonConfig {
   final String accessToken;
   final String visibility;
   final String? language;
+  final String? appWebsite;
 
   Map<String, Object?> toJson() => {
     'base_url': baseUrl.toString(),
     'access_token': accessToken,
     'visibility': visibility,
     if (language != null) 'language': language,
+    if (appWebsite != null) 'app_website': appWebsite,
   };
 }
 
