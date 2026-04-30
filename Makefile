@@ -88,3 +88,13 @@ invoke:
 clean: ## Remove generated build artifacts
 clean:
 	rm -rf dist
+
+hooks := $(filter-out %~,$(wildcard hooks/*))
+git_dir := $(shell git rev-parse --git-dir)
+
+.PHONY: hooks
+hooks:  ## Install helpful git hooks
+hooks: $(addprefix $(git_dir)/,$(hooks))
+
+$(git_dir)/hooks/%: hooks/%
+	ln -s $(PWD)/$(<) $(@)
