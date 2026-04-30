@@ -40,6 +40,7 @@ final class OrgSocialPost {
     this.visibility,
     this.tags = const [],
     this.mood,
+    this.replyTo,
     this.canonicalUrl,
     this.mediaCandidates = const [],
     this.poll,
@@ -57,6 +58,7 @@ final class OrgSocialPost {
   final String? visibility;
   final List<String> tags;
   final String? mood;
+  final String? replyTo;
   final Uri? canonicalUrl;
   final List<OrgSocialMediaCandidate> mediaCandidates;
   final OrgSocialPoll? poll;
@@ -72,6 +74,7 @@ final class OrgSocialPost {
       'vis': visibility,
       'tags': tags,
       'mood': mood,
+      'replyTo': replyTo,
       'pinned': pinned,
       'poll': poll == null
           ? null

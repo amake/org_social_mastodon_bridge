@@ -325,6 +325,50 @@ void main() {
 
     expect(mastodon.unpinCalls, 1);
   });
+
+  test('syncs replies using in_reply_to_id', () async {
+    final parent = OrgSocialPost(
+      sourceId: 'parent',
+      text: 'Parent post',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'parent',
+      orgMarkup: '* parent',
+    );
+    final child = OrgSocialPost(
+      sourceId: 'child',
+      text: 'Child reply',
+      publishedAt: DateTime.utc(2025, 4, 28, 12),
+      headline: 'child',
+      orgMarkup: '* child',
+      replyTo: 'parent',
+    );
+
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: _FakeFeedService([parent, child]),
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.postedPosts, hasLength(2));
+    expect(mastodon.postedPosts[0].sourceId, 'parent');
+    expect(mastodon.postedPosts[1].sourceId, 'child');
+    expect(mastodon.inReplyToIds[1], mastodon.statusIds[0]);
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
@@ -338,15 +382,24 @@ final class _FakeFeedService extends OrgSocialService {
 
 final class _FakeMastodonClient implements MastodonClient {
   final List<OrgSocialPost> postedPosts = [];
+  final List<String?> inReplyToIds = [];
+  final List<String> statusIds = [];
+
   List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
   int updateCalls = 0;
   int pinCalls = 0;
   int unpinCalls = 0;
 
   @override
-  Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
+  Future<MastodonPostResult> postStatus(
+    OrgSocialPost post, {
+    String? inReplyToId,
+  }) async {
     postedPosts.add(post);
-    return MastodonPostResult(statusId: '${postedPosts.length}', url: null);
+    inReplyToIds.add(inReplyToId);
+    final statusId = '${statusIds.length + 1}';
+    statusIds.add(statusId);
+    return MastodonPostResult(statusId: statusId, url: null);
   }
 
   @override
@@ -356,8 +409,9 @@ final class _FakeMastodonClient implements MastodonClient {
     List<String>? existingMediaIds,
   }) async {
     updateCalls += 1;
-    postedPosts.clear();
     postedPosts.add(post);
+    inReplyToIds.add(null);
+    statusIds.add(statusId);
     return MastodonPostResult(statusId: statusId, url: null);
   }
 

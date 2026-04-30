@@ -358,4 +358,49 @@ Not pinned
     expect(posts.last.sourceId, '2025-04-28T12:05:00+0100');
     expect(posts.last.pinned, isFalse);
   });
+
+  test('extracts :REPLY_TO: property and parses it as a fragment', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+Parent
+
+** 2025-04-28T12:05:00+0100
+:PROPERTIES:
+:REPLY_TO: https://example.com/social.org#2025-04-28T12:00:00+0100
+:END:
+Child
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts, hasLength(2));
+    expect(posts.first.sourceId, '2025-04-28T12:00:00+0100');
+    expect(posts.first.replyTo, isNull);
+    expect(posts.last.sourceId, '2025-04-28T12:05:00+0100');
+    expect(posts.last.replyTo, '2025-04-28T12:00:00+0100');
+  });
+
+  test('ignores :REPLY_TO: if it points to a different feed', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:05:00+0100
+:PROPERTIES:
+:REPLY_TO: https://other.com/social.org#some-id
+:END:
+Child
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.replyTo, isNull);
+  });
 }

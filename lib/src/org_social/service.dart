@@ -49,7 +49,11 @@ class OrgSocialService {
 
     final posts = postsSection.sections
         .expand((section) {
-          final post = _parsePost(section, pinnedIds: pinnedIds);
+          final post = _parsePost(
+            section,
+            feedUrl: feedUrl,
+            pinnedIds: pinnedIds,
+          );
           return post == null ? const <OrgSocialPost>[] : [post];
         })
         .toList(growable: false);
@@ -78,6 +82,7 @@ class OrgSocialService {
 
   OrgSocialPost? _parsePost(
     OrgSection section, {
+    required Uri feedUrl,
     Set<String> pinnedIds = const {},
   }) {
     final headline = section.headline.rawTitle?.trim();
@@ -140,7 +145,9 @@ class OrgSocialService {
       tags:
           _firstProperty(section, ':TAGS:')?.split(RegExp(r'\s+')) ?? const [],
       mood: _firstProperty(section, ':MOOD:'),
+      replyTo: _parseReplyTo(feedUrl, _firstProperty(section, ':REPLY_TO:')),
       canonicalUrl: null,
+
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,
       pinned: pinnedIds.contains(sourceId),
@@ -192,6 +199,14 @@ class OrgSocialService {
     }
 
     return result;
+  }
+
+  String? _parseReplyTo(Uri feedUrl, String? replyTo) {
+    if (replyTo == null || replyTo.isEmpty) return null;
+    final uri = Uri.tryParse(replyTo);
+    if (uri == null) return null;
+    if (uri.removeFragment() != feedUrl.removeFragment()) return null;
+    return uri.fragment.isEmpty ? null : uri.fragment;
   }
 
   String? _firstProperty(OrgSection section, String key) {

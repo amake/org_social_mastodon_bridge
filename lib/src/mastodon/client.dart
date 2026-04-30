@@ -13,7 +13,10 @@ final class MastodonPostResult {
 }
 
 abstract interface class MastodonClient {
-  Future<MastodonPostResult> postStatus(OrgSocialPost post);
+  Future<MastodonPostResult> postStatus(
+    OrgSocialPost post, {
+    String? inReplyToId,
+  });
 
   Future<MastodonPostResult> updateStatus(
     String statusId,

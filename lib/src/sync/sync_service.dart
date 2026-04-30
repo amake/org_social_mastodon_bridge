@@ -62,6 +62,9 @@ class SyncService {
     var state = existingState;
     var postedCount = 0;
 
+    // Track Mastodon IDs created in this run to support replies to posts created in same run
+    final newMastodonIds = <String, String>{};
+
     for (final post in unseen) {
       if (postedCount >= config.sync.maxPostsPerRun) {
         logger.info('Reached max posts per run limit, stopping');
@@ -132,13 +135,33 @@ class SyncService {
           continue;
         }
 
+        String? inReplyToId;
+        if (post.replyTo != null) {
+          inReplyToId =
+              newMastodonIds[post.replyTo] ??
+              state.records[post.replyTo]?.mastodonStatusId;
+          if (inReplyToId != null) {
+            logger.debug(
+              'Post ${post.sourceId} is a reply to Mastodon status $inReplyToId',
+            );
+          } else {
+            logger.warning(
+              'Post ${post.sourceId} specifies REPLY_TO ${post.replyTo} but parent was not found',
+            );
+          }
+        }
+
         logger.info('Posting new status for ${post.sourceId}');
-        final result = await mastodonClient.postStatus(currentPost);
+        final result = await mastodonClient.postStatus(
+          currentPost,
+          inReplyToId: inReplyToId,
+        );
 
         if (currentPost.pinned) {
           await mastodonClient.pinStatus(result.statusId);
         }
 
+        newMastodonIds[post.sourceId] = result.statusId;
         state = state.withRecord(
           SyncRecord(
             sourceId: post.sourceId,
@@ -187,6 +210,7 @@ class SyncService {
       visibility: post.visibility,
       tags: post.tags,
       mood: post.mood,
+      replyTo: post.replyTo,
       orgMarkup: post.orgMarkup,
       text: '${post.text}\n\n${post.canonicalUrl}',
     );

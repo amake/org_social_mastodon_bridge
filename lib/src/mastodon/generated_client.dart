@@ -46,7 +46,10 @@ class GeneratedMastodonClient implements MastodonClient {
   };
 
   @override
-  Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
+  Future<MastodonPostResult> postStatus(
+    OrgSocialPost post, {
+    String? inReplyToId,
+  }) async {
     logger.debug('Creating Mastodon status for ${post.sourceId}');
 
     final poll = post.poll;
@@ -69,7 +72,11 @@ class GeneratedMastodonClient implements MastodonClient {
             'Mastodon does not support both; prioritizing poll.',
           );
         }
-        final request = _buildPollRequest(post, expiresIn);
+        final request = _buildPollRequest(
+          post,
+          expiresIn,
+          inReplyToId: inReplyToId,
+        );
         return _sendRequest(post.sourceId, request);
       }
     }
@@ -84,8 +91,17 @@ class GeneratedMastodonClient implements MastodonClient {
     }
 
     final request = mediaIds.isEmpty
-        ? _buildTextRequest(post, appendPollOptions: poll != null)
-        : _buildMediaRequest(post, mediaIds, appendPollOptions: poll != null);
+        ? _buildTextRequest(
+            post,
+            appendPollOptions: poll != null,
+            inReplyToId: inReplyToId,
+          )
+        : _buildMediaRequest(
+            post,
+            mediaIds,
+            appendPollOptions: poll != null,
+            inReplyToId: inReplyToId,
+          );
 
     return _sendRequest(post.sourceId, request);
   }
@@ -192,8 +208,9 @@ class GeneratedMastodonClient implements MastodonClient {
 
   generated.CreateStatusRequest _buildPollRequest(
     OrgSocialPost post,
-    int expiresIn,
-  ) {
+    int expiresIn, {
+    String? inReplyToId,
+  }) {
     final poll = post.poll!;
     final pollParams = generated.UpdateStatusRequestPoll(
       (builder) => builder
@@ -207,7 +224,8 @@ class GeneratedMastodonClient implements MastodonClient {
         ..status = _buildFinalStatusText(post)
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
-        ..spoilerText = post.contentWarning,
+        ..spoilerText = post.contentWarning
+        ..inReplyToId = inReplyToId,
     );
 
     return generated.CreateStatusRequest(
@@ -223,6 +241,7 @@ class GeneratedMastodonClient implements MastodonClient {
   generated.CreateStatusRequest _buildTextRequest(
     OrgSocialPost post, {
     bool appendPollOptions = false,
+    String? inReplyToId,
   }) {
     final textStatus = generated.TextStatus(
       (builder) => builder
@@ -232,7 +251,8 @@ class GeneratedMastodonClient implements MastodonClient {
         )
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
-        ..spoilerText = post.contentWarning,
+        ..spoilerText = post.contentWarning
+        ..inReplyToId = inReplyToId,
     );
     final request = generated.CreateStatusRequest(
       (builder) => builder.oneOf =
@@ -249,6 +269,7 @@ class GeneratedMastodonClient implements MastodonClient {
     OrgSocialPost post,
     List<String> mediaIds, {
     bool appendPollOptions = false,
+    String? inReplyToId,
   }) {
     final statusText = _buildFinalStatusText(
       post,
@@ -260,7 +281,8 @@ class GeneratedMastodonClient implements MastodonClient {
         ..status = statusText
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
-        ..spoilerText = post.contentWarning,
+        ..spoilerText = post.contentWarning
+        ..inReplyToId = inReplyToId,
     );
     return generated.CreateStatusRequest(
       (builder) => builder.oneOf =
