@@ -301,6 +301,29 @@ void main() {
     expect(statusText, contains('#tag1 #tag2'));
     expect(statusText, endsWith('#tag1 #tag2'));
   });
+
+  test('pins and unpins status via API', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+    );
+
+    await client.pinStatus('status123');
+    expect(interceptor.pinnedStatusIds, ['status123']);
+
+    await client.unpinStatus('status123');
+    expect(interceptor.unpinnedStatusIds, ['status123']);
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {
@@ -308,6 +331,8 @@ final class _StubMastodonInterceptor extends Interceptor {
   final List<String?> uploadedDescriptions = [];
   final List<String?> uploadedContentTypes = [];
   final List<Map<String, dynamic>> statusBodies = [];
+  final List<String> pinnedStatusIds = [];
+  final List<String> unpinnedStatusIds = [];
   int _mediaCounter = 0;
   int _statusCounter = 0;
 
@@ -346,6 +371,36 @@ final class _StubMastodonInterceptor extends Interceptor {
       return;
     }
 
+    final pinMatch = RegExp(
+      r'^/api/v1/statuses/([^/]+)/pin$',
+    ).firstMatch(options.path);
+    if (pinMatch != null) {
+      pinnedStatusIds.add(pinMatch.group(1)!);
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: _minimalStatusJson(pinMatch.group(1)!),
+        ),
+      );
+      return;
+    }
+
+    final unpinMatch = RegExp(
+      r'^/api/v1/statuses/([^/]+)/unpin$',
+    ).firstMatch(options.path);
+    if (unpinMatch != null) {
+      unpinnedStatusIds.add(unpinMatch.group(1)!);
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: _minimalStatusJson(unpinMatch.group(1)!),
+        ),
+      );
+      return;
+    }
+
     switch (options.path) {
       case '/api/v2/media':
         final formData = options.data as FormData;
@@ -375,6 +430,46 @@ final class _StubMastodonInterceptor extends Interceptor {
 
     handler.next(options);
   }
+
+  Map<String, dynamic> _minimalStatusJson(String id) => {
+    'id': id,
+    'created_at': '2026-04-27T00:00:00.000Z',
+    'sensitive': false,
+    'spoiler_text': '',
+    'visibility': 'public',
+    'uri': 'https://mastodon.example/statuses/$id',
+    'url': 'https://mastodon.example/@user/$id',
+    'replies_count': 0,
+    'reblogs_count': 0,
+    'favourites_count': 0,
+    'content': '',
+    'account': {
+      'id': 'user-id',
+      'username': 'user',
+      'acct': 'user',
+      'display_name': 'User',
+      'locked': false,
+      'bot': false,
+      'group': false,
+      'created_at': '2026-04-27T00:00:00.000Z',
+      'note': '',
+      'url': 'https://mastodon.example/@user',
+      'uri': 'https://mastodon.example/users/user',
+      'avatar': 'https://mastodon.example/avatar.png',
+      'avatar_static': 'https://mastodon.example/avatar.png',
+      'header': 'https://mastodon.example/header.png',
+      'header_static': 'https://mastodon.example/header.png',
+      'followers_count': 0,
+      'following_count': 0,
+      'statuses_count': 0,
+      'emojis': [],
+      'fields': [],
+    },
+    'media_attachments': [],
+    'mentions': [],
+    'tags': [],
+    'emojis': [],
+  };
 
   String _mediaTypeFor(String filename) {
     if (filename.endsWith('.mp4')) return 'video';

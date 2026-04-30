@@ -43,6 +43,7 @@ final class OrgSocialPost {
     this.canonicalUrl,
     this.mediaCandidates = const [],
     this.poll,
+    this.pinned = false,
   });
 
   final String sourceId;
@@ -59,6 +60,7 @@ final class OrgSocialPost {
   final Uri? canonicalUrl;
   final List<OrgSocialMediaCandidate> mediaCandidates;
   final OrgSocialPoll? poll;
+  final bool pinned;
 
   String get contentHash => sha256.convert(utf8.encode(orgMarkup)).toString();
 
@@ -70,6 +72,7 @@ final class OrgSocialPost {
       'vis': visibility,
       'tags': tags,
       'mood': mood,
+      'pinned': pinned,
       'poll': poll == null
           ? null
           : {

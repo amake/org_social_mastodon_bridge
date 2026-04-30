@@ -133,6 +133,18 @@ class GeneratedMastodonClient implements MastodonClient {
     return _sendUpdateRequest(statusId, post.sourceId, request);
   }
 
+  @override
+  Future<void> pinStatus(String statusId) async {
+    logger.debug('Pinning Mastodon status $statusId');
+    await _api.getStatusesApi().postStatusPin(id: statusId);
+  }
+
+  @override
+  Future<void> unpinStatus(String statusId) async {
+    logger.debug('Unpinning Mastodon status $statusId');
+    await _api.getStatusesApi().postStatusUnpin(id: statusId);
+  }
+
   Future<MastodonPostResult> _sendRequest(
     String sourceId,
     generated.CreateStatusRequest request,

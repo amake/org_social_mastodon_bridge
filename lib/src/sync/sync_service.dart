@@ -104,6 +104,14 @@ class SyncService {
           existingMediaIds: existingRecord.mediaIds,
         );
 
+        if (currentPost.pinned != existingRecord.pinned) {
+          if (currentPost.pinned) {
+            await mastodonClient.pinStatus(result.statusId);
+          } else {
+            await mastodonClient.unpinStatus(result.statusId);
+          }
+        }
+
         state = state.withRecord(
           SyncRecord(
             sourceId: post.sourceId,
@@ -113,6 +121,7 @@ class SyncService {
             contentHash: currentPost.contentHash,
             renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
+            pinned: currentPost.pinned,
           ),
         );
         postedCount += 1;
@@ -126,6 +135,10 @@ class SyncService {
         logger.info('Posting new status for ${post.sourceId}');
         final result = await mastodonClient.postStatus(currentPost);
 
+        if (currentPost.pinned) {
+          await mastodonClient.pinStatus(result.statusId);
+        }
+
         state = state.withRecord(
           SyncRecord(
             sourceId: post.sourceId,
@@ -135,6 +148,7 @@ class SyncService {
             contentHash: currentPost.contentHash,
             renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
+            pinned: currentPost.pinned,
           ),
         );
         postedCount += 1;

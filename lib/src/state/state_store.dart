@@ -17,6 +17,7 @@ final class SyncRecord {
     this.contentHash,
     this.renderedHash,
     this.mediaIds = const [],
+    this.pinned = false,
   });
 
   factory SyncRecord.fromJson(Map<String, Object?> json) => SyncRecord(
@@ -27,6 +28,7 @@ final class SyncRecord {
     contentHash: json['content_hash'] as String?,
     renderedHash: json['rendered_hash'] as String?,
     mediaIds: (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
+    pinned: json['pinned'] as bool? ?? false,
   );
 
   final String sourceId;
@@ -36,6 +38,7 @@ final class SyncRecord {
   final String? contentHash;
   final String? renderedHash;
   final List<String> mediaIds;
+  final bool pinned;
 
   Map<String, Object?> toJson() => {
     'source_id': sourceId,
@@ -45,6 +48,7 @@ final class SyncRecord {
     if (contentHash != null) 'content_hash': contentHash,
     if (renderedHash != null) 'rendered_hash': renderedHash,
     'media_ids': mediaIds,
+    'pinned': pinned,
   };
 }
 

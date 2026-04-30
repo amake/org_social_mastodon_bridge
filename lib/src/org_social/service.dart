@@ -37,6 +37,11 @@ class OrgSocialService {
   }) {
     logger.debug('Parsing Org Social feed from $feedUrl');
     final document = OrgDocument.parse(content);
+    final pinnedIds = _parsePinnedIds(document);
+    logger.debug(
+      'Found ${pinnedIds.length} pinned post IDs in global metadata',
+    );
+
     final postsSection = document.sections.firstWhere(
       (section) => section.headline.rawTitle?.trim().toLowerCase() == 'posts',
       orElse: () => throw const FormatException('No top-level "Posts" section'),
@@ -44,7 +49,7 @@ class OrgSocialService {
 
     final posts = postsSection.sections
         .expand((section) {
-          final post = _parsePost(section);
+          final post = _parsePost(section, pinnedIds: pinnedIds);
           return post == null ? const <OrgSocialPost>[] : [post];
         })
         .toList(growable: false);
@@ -54,7 +59,27 @@ class OrgSocialService {
     return posts;
   }
 
-  OrgSocialPost? _parsePost(OrgSection section) {
+  Set<String> _parsePinnedIds(OrgDocument document) {
+    final pinnedIds = <String>{};
+    for (final child in document.children) {
+      if (child is OrgContent) {
+        for (final node in child.children) {
+          if (node is OrgMeta && node.key.toLowerCase() == '#+pinned:') {
+            final value = node.value?.toPlainText().trim();
+            if (value != null && value.isNotEmpty) {
+              pinnedIds.addAll(value.split(RegExp(r'\s+')));
+            }
+          }
+        }
+      }
+    }
+    return pinnedIds;
+  }
+
+  OrgSocialPost? _parsePost(
+    OrgSection section, {
+    Set<String> pinnedIds = const {},
+  }) {
     final headline = section.headline.rawTitle?.trim();
     final propertyId = _firstProperty(section, ':ID:')?.trim();
     final pollEndStr = _firstProperty(section, ':POLL_END:')?.trim();
@@ -118,6 +143,7 @@ class OrgSocialService {
       canonicalUrl: null,
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,
+      pinned: pinnedIds.contains(sourceId),
     );
   }
 

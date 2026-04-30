@@ -21,5 +21,9 @@ abstract interface class MastodonClient {
     List<String>? existingMediaIds,
   });
 
+  Future<void> pinStatus(String statusId);
+
+  Future<void> unpinStatus(String statusId);
+
   Future<void> verifyCredentials();
 }

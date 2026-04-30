@@ -172,6 +172,7 @@ void main() {
           postedAt: DateTime.utc(2025, 4, 28, 11),
           contentHash: originalPost.contentHash,
           renderedHash: originalPost.renderedHash,
+          pinned: originalPost.pinned,
         ),
       }),
     );
@@ -248,12 +249,88 @@ void main() {
       post.renderedHash,
     );
   });
+
+  test('pins and unpins posts when pinned status changes', () async {
+    final originalPost = OrgSocialPost(
+      sourceId: 'pin-change',
+      text: 'Text',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'pin-change',
+      orgMarkup: '* pin-change',
+      pinned: false,
+    );
+    final pinnedPost = OrgSocialPost(
+      sourceId: 'pin-change',
+      text: 'Text',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'pin-change',
+      orgMarkup: '* pin-change',
+      pinned: true,
+    );
+
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(
+      SyncState({
+        'pin-change': SyncRecord(
+          sourceId: 'pin-change',
+          mastodonStatusId: 'status-id',
+          postedAt: DateTime.utc(2025, 4, 28, 11),
+          contentHash: originalPost.contentHash,
+          renderedHash: originalPost.renderedHash,
+          pinned: originalPost.pinned,
+        ),
+      }),
+    );
+
+    final feedService = _FakeFeedService([pinnedPost]);
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    // Sync to pin
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.pinCalls, 1);
+    expect(mastodon.unpinCalls, 0);
+    expect(
+      stateStore.state.records['pin-change']!.renderedHash,
+      pinnedPost.renderedHash,
+    );
+
+    // Sync to unpin
+    feedService.posts = [originalPost];
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.unpinCalls, 1);
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
   _FakeFeedService(this.posts);
 
-  final List<OrgSocialPost> posts;
+  List<OrgSocialPost> posts;
 
   @override
   Future<List<OrgSocialPost>> fetchPosts(SourceConfig config) async => posts;
@@ -263,6 +340,8 @@ final class _FakeMastodonClient implements MastodonClient {
   final List<OrgSocialPost> postedPosts = [];
   List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
   int updateCalls = 0;
+  int pinCalls = 0;
+  int unpinCalls = 0;
 
   @override
   Future<MastodonPostResult> postStatus(OrgSocialPost post) async {
@@ -280,6 +359,16 @@ final class _FakeMastodonClient implements MastodonClient {
     postedPosts.clear();
     postedPosts.add(post);
     return MastodonPostResult(statusId: statusId, url: null);
+  }
+
+  @override
+  Future<void> pinStatus(String statusId) async {
+    pinCalls += 1;
+  }
+
+  @override
+  Future<void> unpinStatus(String statusId) async {
+    unpinCalls += 1;
   }
 
   @override
