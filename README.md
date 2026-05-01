@@ -104,6 +104,26 @@ Requirements for deployment tooling:
 - `aws` CLI
 - `jq`
 
+The trickiest gotcha is that if you provision the state file with `make
+provision` it will be private, so you will need to ensure that the Lambda
+executor role has appropriate permissions like:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::$MY_BUCKET/path/to/state.json"
+        }
+    ]
+}
+```
+
 ## License
 
 MIT
