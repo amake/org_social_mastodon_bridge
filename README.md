@@ -5,7 +5,7 @@ Sync an [Org Social](https://org-social.org/) feed to a Mastodon account.
 This project:
 
 - fetches a configured `social.org` feed
-- parses it with the published [`org_parser`](https://pub.dev/packages/org_parser)
+- parses it with [`org_parser`](https://pub.dev/packages/org_parser)
 - posts unseen items to Mastodon oldest-first
 - persists sync state so repeated runs are idempotent
 - supports local execution and AWS Lambda ZIP deployment on `provided.al2023`
@@ -15,6 +15,12 @@ The Mastodon client is generated from the published
 [`openapi_generator`](https://pub.dev/packages/openapi_generator).
 `make generate` also reapplies a small deterministic compatibility patch set to
 the generated package.
+
+## Example
+
+This project powers the [Orgro official Mastodon
+account](https://mastodon.social/@orgro) sourcing from the [Orgro official Org
+Social feed](https://social.orgro.org/).
 
 ## Config
 
@@ -43,7 +49,10 @@ The important sections are:
 - `make invoke`
 
 `make run` executes one sync pass against `config.json`.
-`make provision` transitions from local to Lambda: it uploads your local state file to the S3 bucket configured in `remote_state` and pushes your full configuration to the Lambda's environment variables.
+`make provision` transitions from local to Lambda: it uploads your local state
+file to the S3 bucket configured in `remote_state` and pushes your full
+configuration to the Lambda's environment variables.
+
 `make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for
 verbose local runs.
 
@@ -94,3 +103,7 @@ Requirements for deployment tooling:
 - Dart SDK with cross-compilation artifacts available
 - `aws` CLI
 - `jq`
+
+## License
+
+MIT
