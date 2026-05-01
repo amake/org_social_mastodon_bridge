@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:org_parser/org_parser.dart';
 
@@ -147,7 +148,6 @@ class OrgSocialService {
       mood: _firstProperty(section, ':MOOD:'),
       replyTo: _parseReplyTo(feedUrl, _firstProperty(section, ':REPLY_TO:')),
       canonicalUrl: null,
-
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,
       pinned: pinnedIds.contains(sourceId),
