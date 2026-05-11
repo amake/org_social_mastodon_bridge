@@ -48,7 +48,6 @@ class LambdaRuntime {
           await _postResponse(client, runtimeApi, invocation.requestId, {
             'seen_posts': result.seenPosts,
             'candidate_posts': result.candidatePosts,
-            'new_posts': result.newPosts,
             'posted_posts': result.postedPosts,
             'dry_run': result.dryRun,
           });

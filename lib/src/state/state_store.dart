@@ -13,11 +13,11 @@ final class SyncRecord {
     required this.sourceId,
     required this.mastodonStatusId,
     required this.postedAt,
+    required this.contentHash,
+    required this.renderedHash,
+    required this.selectedMedia,
     this.mastodonUrl,
-    this.contentHash,
-    this.renderedHash,
     this.mediaIds = const [],
-    this.selectedMedia = const [],
     this.pinned = false,
   });
 
@@ -25,34 +25,33 @@ final class SyncRecord {
     sourceId: json['source_id']! as String,
     mastodonStatusId: json['mastodon_status_id']! as String,
     postedAt: DateTime.parse(json['posted_at']! as String).toUtc(),
+    contentHash: json['content_hash']! as String,
+    renderedHash: json['rendered_hash']! as String,
+    selectedMedia: (json['selected_media']! as List<Object?>).cast<String>(),
     mastodonUrl: json['mastodon_url'] as String?,
-    contentHash: json['content_hash'] as String?,
-    renderedHash: json['rendered_hash'] as String?,
     mediaIds: (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
-    selectedMedia: (json['selected_media'] as List<Object?>? ?? const [])
-        .cast<String>(),
     pinned: json['pinned'] as bool? ?? false,
   );
 
   final String sourceId;
   final String mastodonStatusId;
   final DateTime postedAt;
-  final String? mastodonUrl;
-  final String? contentHash;
-  final String? renderedHash;
-  final List<String> mediaIds;
+  final String contentHash;
+  final String renderedHash;
   final List<String> selectedMedia;
+  final String? mastodonUrl;
+  final List<String> mediaIds;
   final bool pinned;
 
   Map<String, Object?> toJson() => {
     'source_id': sourceId,
     'mastodon_status_id': mastodonStatusId,
     'posted_at': postedAt.toUtc().toIso8601String(),
-    if (mastodonUrl != null) 'mastodon_url': mastodonUrl,
-    if (contentHash != null) 'content_hash': contentHash,
-    if (renderedHash != null) 'rendered_hash': renderedHash,
-    'media_ids': mediaIds,
+    'content_hash': contentHash,
+    'rendered_hash': renderedHash,
     'selected_media': selectedMedia,
+    if (mastodonUrl != null) 'mastodon_url': mastodonUrl,
+    'media_ids': mediaIds,
     'pinned': pinned,
   };
 }

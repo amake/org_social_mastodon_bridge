@@ -40,6 +40,7 @@ void main() {
             headline: 'old',
             orgMarkup: '* old',
           ).renderedHash,
+          selectedMedia: const [],
         ),
       }),
     );
@@ -64,7 +65,6 @@ void main() {
 
     expect(result.seenPosts, 2);
     expect(result.candidatePosts, 1);
-    expect(result.newPosts, 1);
     expect(result.postedPosts, 1);
     expect(mastodon.postedTexts, ['New text']);
     expect(stateStore.state.containsSourceId('new'), isTrue);
@@ -102,7 +102,6 @@ void main() {
     );
 
     expect(result.candidatePosts, 1);
-    expect(result.newPosts, 1);
     expect(result.postedPosts, 0);
     expect(mastodon.postedTexts, isEmpty);
     expect(stateStore.saveCalls, 0);
@@ -174,6 +173,7 @@ void main() {
           postedAt: DateTime.utc(2025, 4, 28, 11),
           contentHash: originalPost.contentHash,
           renderedHash: originalPost.renderedHash,
+          selectedMedia: const [],
           pinned: originalPost.pinned,
         ),
       }),
@@ -223,6 +223,7 @@ void main() {
           postedAt: DateTime.utc(2025, 4, 28, 11),
           contentHash: post.contentHash,
           renderedHash: 'old-rendered-hash',
+          selectedMedia: const [],
         ),
       }),
     );
@@ -252,63 +253,6 @@ void main() {
     );
   });
 
-  test('backfills missing rendered hash for legacy state records', () async {
-    final post = OrgSocialPost(
-      sourceId: 'legacy',
-      text: 'Stable text',
-      publishedAt: DateTime.utc(2025, 4, 28, 11),
-      headline: 'legacy',
-      orgMarkup: '* legacy',
-      pinned: true,
-      mediaCandidates: [
-        OrgSocialMediaCandidate(
-          url: Uri.parse('https://cdn.example/1.jpg'),
-          kind: OrgSocialMediaKind.image,
-          altText: 'One',
-        ),
-      ],
-    );
-
-    final mastodon = _FakeMastodonClient();
-    final stateStore = _MemoryStateStore(
-      SyncState({
-        'legacy': SyncRecord(
-          sourceId: 'legacy',
-          mastodonStatusId: 'legacy-id',
-          postedAt: DateTime.utc(2025, 4, 28, 11),
-          contentHash: post.contentHash,
-        ),
-      }),
-    );
-
-    final service = SyncService(
-      feedService: _FakeFeedService([post]),
-      mastodonClient: mastodon,
-      stateStore: stateStore,
-    );
-
-    final result = await service.run(
-      AppConfig.fromJson({
-        'source': {'feed_url': 'https://example.com/social.org'},
-        'mastodon': {
-          'base_url': 'https://mastodon.social',
-          'access_token': 'token',
-        },
-        'sync': {'dry_run': false, 'max_posts_per_run': 10},
-        'state': {'type': 'file', 'path': 'state.json'},
-      }),
-    );
-
-    expect(result.candidatePosts, 1);
-    expect(result.postedPosts, 0);
-    expect(mastodon.updateCalls, 0);
-    expect(stateStore.state.records['legacy']!.renderedHash, post.renderedHash);
-    expect(stateStore.state.records['legacy']!.selectedMedia, [
-      'image:https://cdn.example/1.jpg:One',
-    ]);
-    expect(stateStore.state.records['legacy']!.pinned, isTrue);
-  });
-
   test('pins and unpins posts when pinned status changes', () async {
     final originalPost = OrgSocialPost(
       sourceId: 'pin-change',
@@ -336,6 +280,7 @@ void main() {
           postedAt: DateTime.utc(2025, 4, 28, 11),
           contentHash: originalPost.contentHash,
           renderedHash: originalPost.renderedHash,
+          selectedMedia: const [],
           pinned: originalPost.pinned,
         ),
       }),
@@ -456,6 +401,7 @@ void main() {
             postedAt: DateTime.utc(2025, 4, 28, 11),
             contentHash: originalPost.contentHash,
             renderedHash: originalPost.renderedHash,
+            selectedMedia: const [],
           ),
         }),
       ),
@@ -474,7 +420,6 @@ void main() {
     );
 
     expect(result.candidatePosts, 1);
-    expect(result.newPosts, 1);
   });
 }
 

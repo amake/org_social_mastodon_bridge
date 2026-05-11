@@ -17,9 +17,6 @@ final class SyncResult {
   final int candidatePosts;
   final int postedPosts;
   final bool dryRun;
-
-  @Deprecated('Use candidatePosts; this includes new and modified posts.')
-  int get newPosts => candidatePosts;
 }
 
 class SyncService {
@@ -43,9 +40,6 @@ class SyncService {
           final record = existingState.records[post.sourceId];
           if (record == null) return true;
           final currentPost = _withOptionalLink(post, config.sync.includeLink);
-          if (record.contentHash == null || record.renderedHash == null) {
-            return true;
-          }
           if (record.contentHash != currentPost.contentHash) return true;
           if (record.renderedHash != currentPost.renderedHash) {
             return true;
@@ -80,26 +74,6 @@ class SyncService {
       final existingRecord = state.records[post.sourceId];
 
       if (existingRecord != null) {
-        if (existingRecord.contentHash == null ||
-            existingRecord.renderedHash == null) {
-          logger.debug('Initializing missing hashes for ${post.sourceId}');
-          state = state.withRecord(
-            SyncRecord(
-              sourceId: existingRecord.sourceId,
-              mastodonStatusId: existingRecord.mastodonStatusId,
-              postedAt: existingRecord.postedAt,
-              mastodonUrl: existingRecord.mastodonUrl,
-              contentHash: currentPost.contentHash,
-              renderedHash: currentPost.renderedHash,
-              mediaIds: existingRecord.mediaIds,
-              selectedMedia: _selectedMediaKeys(currentPost),
-              pinned: currentPost.pinned,
-            ),
-          );
-          await stateStore.save(state);
-          continue;
-        }
-
         if (config.sync.dryRun) {
           logger.info('Dry run: would update ${post.sourceId}');
           continue;

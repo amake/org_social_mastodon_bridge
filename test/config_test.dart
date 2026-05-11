@@ -54,4 +54,15 @@ void main() {
     expect(config.state, isA<FileStateConfig>());
     expect(config.remoteState, isA<S3StateConfig>());
   });
+
+  test('sync record requires current-format state fields', () {
+    expect(
+      () => SyncRecord.fromJson({
+        'source_id': 'post-1',
+        'mastodon_status_id': 'status-1',
+        'posted_at': '2025-04-28T11:00:00Z',
+      }),
+      throwsA(isA<TypeError>()),
+    );
+  });
 }
