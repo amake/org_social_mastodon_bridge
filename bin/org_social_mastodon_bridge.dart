@@ -18,11 +18,11 @@ Future<void> main(List<String> arguments) async {
   );
 
   logger.info(
-    'Run result: seen=${result.seenPosts} new=${result.newPosts} '
+    'Run result: seen=${result.seenPosts} candidates=${result.candidatePosts} '
     'posted=${result.postedPosts} dry_run=${result.dryRun}',
   );
   stdout.writeln(
-    'seen=${result.seenPosts} new=${result.newPosts} '
+    'seen=${result.seenPosts} candidates=${result.candidatePosts} '
     'posted=${result.postedPosts} dry_run=${result.dryRun}',
   );
 }

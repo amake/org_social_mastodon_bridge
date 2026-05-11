@@ -331,6 +331,98 @@ void main() {
     await client.unpinStatus('status123');
     expect(interceptor.unpinnedStatusIds, ['status123']);
   });
+
+  test('reuploads media on update when selected media changed', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
+      httpClient: _StubHttpClient({
+        Uri.parse('https://cdn.example/new.jpg'): _StubHttpResponse(
+          body: [1, 2, 3],
+          headers: {'content-type': 'image/jpeg'},
+        ),
+      }),
+    );
+
+    final result = await client.updateStatus(
+      'status-1',
+      OrgSocialPost(
+        sourceId: 'source-1',
+        text: 'updated',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: 'source-1',
+        orgMarkup: '',
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://cdn.example/new.jpg'),
+            kind: OrgSocialMediaKind.image,
+            altText: 'New',
+          ),
+        ],
+      ),
+      existingMediaIds: const ['media-old'],
+      existingSelectedMedia: const ['image:https://cdn.example/old.jpg:Old'],
+    );
+
+    expect(interceptor.uploadedFilenames, ['new.jpg']);
+    expect(interceptor.updatedStatusBodies.single['media_ids'], ['media-1']);
+    expect(result.mediaIds, ['media-1']);
+  });
+
+  test('reuses media on update only when selected media matches', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
+    );
+
+    final result = await client.updateStatus(
+      'status-1',
+      OrgSocialPost(
+        sourceId: 'source-1',
+        text: 'updated',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: 'source-1',
+        orgMarkup: '',
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://cdn.example/same.jpg'),
+            kind: OrgSocialMediaKind.image,
+            altText: 'Same',
+          ),
+        ],
+      ),
+      existingMediaIds: const ['media-existing'],
+      existingSelectedMedia: const ['image:https://cdn.example/same.jpg:Same'],
+    );
+
+    expect(interceptor.uploadedFilenames, isEmpty);
+    expect(interceptor.updatedStatusBodies.single['media_ids'], [
+      'media-existing',
+    ]);
+    expect(result.mediaIds, ['media-existing']);
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {
@@ -338,6 +430,7 @@ final class _StubMastodonInterceptor extends Interceptor {
   final List<String?> uploadedDescriptions = [];
   final List<String?> uploadedContentTypes = [];
   final List<Map<String, dynamic>> statusBodies = [];
+  final List<Map<String, dynamic>> updatedStatusBodies = [];
   final List<String> pinnedStatusIds = [];
   final List<String> unpinnedStatusIds = [];
   int _mediaCounter = 0;
@@ -389,6 +482,25 @@ final class _StubMastodonInterceptor extends Interceptor {
             },
             'scheduled_at': '2026-04-27T00:00:00.000Z',
           },
+        ),
+      );
+      return;
+    }
+
+    final updateMatch = RegExp(
+      r'^/api/v1/statuses/([^/]+)$',
+    ).firstMatch(options.path);
+    if (updateMatch != null && options.method == 'PUT') {
+      final body = options.data as Map<String, dynamic>;
+      updatedStatusBodies.add(body);
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: _minimalStatusJson(
+            updateMatch.group(1)!,
+            mediaIds: (body['media_ids'] as List<dynamic>?)?.cast<String>(),
+          ),
         ),
       );
       return;
@@ -454,7 +566,10 @@ final class _StubMastodonInterceptor extends Interceptor {
     handler.next(options);
   }
 
-  Map<String, dynamic> _minimalStatusJson(String id) => {
+  Map<String, dynamic> _minimalStatusJson(
+    String id, {
+    List<String>? mediaIds,
+  }) => {
     'id': id,
     'created_at': '2026-04-27T00:00:00.000Z',
     'sensitive': false,
@@ -488,7 +603,9 @@ final class _StubMastodonInterceptor extends Interceptor {
       'emojis': [],
       'fields': [],
     },
-    'media_attachments': [],
+    'media_attachments':
+        mediaIds?.map((mediaId) => {'id': mediaId, 'type': 'image'}).toList() ??
+        [],
     'mentions': [],
     'tags': [],
     'emojis': [],

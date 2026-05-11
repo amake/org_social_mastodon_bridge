@@ -22,6 +22,7 @@ abstract interface class MastodonClient {
     String statusId,
     OrgSocialPost post, {
     List<String>? existingMediaIds,
+    List<String>? existingSelectedMedia,
   });
 
   Future<void> pinStatus(String statusId);

@@ -17,6 +17,7 @@ final class SyncRecord {
     this.contentHash,
     this.renderedHash,
     this.mediaIds = const [],
+    this.selectedMedia = const [],
     this.pinned = false,
   });
 
@@ -28,6 +29,8 @@ final class SyncRecord {
     contentHash: json['content_hash'] as String?,
     renderedHash: json['rendered_hash'] as String?,
     mediaIds: (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
+    selectedMedia: (json['selected_media'] as List<Object?>? ?? const [])
+        .cast<String>(),
     pinned: json['pinned'] as bool? ?? false,
   );
 
@@ -38,6 +41,7 @@ final class SyncRecord {
   final String? contentHash;
   final String? renderedHash;
   final List<String> mediaIds;
+  final List<String> selectedMedia;
   final bool pinned;
 
   Map<String, Object?> toJson() => {
@@ -48,6 +52,7 @@ final class SyncRecord {
     if (contentHash != null) 'content_hash': contentHash,
     if (renderedHash != null) 'rendered_hash': renderedHash,
     'media_ids': mediaIds,
+    'selected_media': selectedMedia,
     'pinned': pinned,
   };
 }

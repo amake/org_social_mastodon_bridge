@@ -8,15 +8,18 @@ import '../state/state_store.dart';
 final class SyncResult {
   const SyncResult({
     required this.seenPosts,
-    required this.newPosts,
+    required this.candidatePosts,
     required this.postedPosts,
     required this.dryRun,
   });
 
   final int seenPosts;
-  final int newPosts;
+  final int candidatePosts;
   final int postedPosts;
   final bool dryRun;
+
+  @Deprecated('Use candidatePosts; this includes new and modified posts.')
+  int get newPosts => candidatePosts;
 }
 
 class SyncService {
@@ -40,9 +43,11 @@ class SyncService {
           final record = existingState.records[post.sourceId];
           if (record == null) return true;
           final currentPost = _withOptionalLink(post, config.sync.includeLink);
+          if (record.contentHash == null || record.renderedHash == null) {
+            return true;
+          }
           if (record.contentHash != currentPost.contentHash) return true;
-          if (record.renderedHash != null &&
-              record.renderedHash != currentPost.renderedHash) {
+          if (record.renderedHash != currentPost.renderedHash) {
             return true;
           }
           return false;
@@ -87,6 +92,8 @@ class SyncService {
               contentHash: currentPost.contentHash,
               renderedHash: currentPost.renderedHash,
               mediaIds: existingRecord.mediaIds,
+              selectedMedia: _selectedMediaKeys(currentPost),
+              pinned: currentPost.pinned,
             ),
           );
           await stateStore.save(state);
@@ -105,6 +112,7 @@ class SyncService {
           existingRecord.mastodonStatusId,
           currentPost,
           existingMediaIds: existingRecord.mediaIds,
+          existingSelectedMedia: existingRecord.selectedMedia,
         );
 
         if (currentPost.pinned != existingRecord.pinned) {
@@ -124,6 +132,7 @@ class SyncService {
             contentHash: currentPost.contentHash,
             renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
+            selectedMedia: _selectedMediaKeys(currentPost),
             pinned: currentPost.pinned,
           ),
         );
@@ -171,6 +180,7 @@ class SyncService {
             contentHash: currentPost.contentHash,
             renderedHash: currentPost.renderedHash,
             mediaIds: result.mediaIds,
+            selectedMedia: _selectedMediaKeys(currentPost),
             pinned: currentPost.pinned,
           ),
         );
@@ -187,11 +197,20 @@ class SyncService {
     );
     return SyncResult(
       seenPosts: posts.length,
-      newPosts: unseen.length,
+      candidatePosts: unseen.length,
       postedPosts: postedCount,
       dryRun: config.sync.dryRun,
     );
   }
+
+  List<String> _selectedMediaKeys(
+    OrgSocialPost post,
+  ) => OrgSocialPost.selectMediaCandidates(post.mediaCandidates)
+      .map(
+        (candidate) =>
+            '${candidate.kind.name}:${candidate.url}:${candidate.altText ?? ''}',
+      )
+      .toList(growable: false);
 
   OrgSocialPost _withOptionalLink(OrgSocialPost post, bool includeLink) {
     if (!includeLink || post.canonicalUrl == null) {

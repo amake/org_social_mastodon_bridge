@@ -63,6 +63,7 @@ void main() {
     );
 
     expect(result.seenPosts, 2);
+    expect(result.candidatePosts, 1);
     expect(result.newPosts, 1);
     expect(result.postedPosts, 1);
     expect(mastodon.postedTexts, ['New text']);
@@ -100,6 +101,7 @@ void main() {
       }),
     );
 
+    expect(result.candidatePosts, 1);
     expect(result.newPosts, 1);
     expect(result.postedPosts, 0);
     expect(mastodon.postedTexts, isEmpty);
@@ -250,6 +252,63 @@ void main() {
     );
   });
 
+  test('backfills missing rendered hash for legacy state records', () async {
+    final post = OrgSocialPost(
+      sourceId: 'legacy',
+      text: 'Stable text',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'legacy',
+      orgMarkup: '* legacy',
+      pinned: true,
+      mediaCandidates: [
+        OrgSocialMediaCandidate(
+          url: Uri.parse('https://cdn.example/1.jpg'),
+          kind: OrgSocialMediaKind.image,
+          altText: 'One',
+        ),
+      ],
+    );
+
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(
+      SyncState({
+        'legacy': SyncRecord(
+          sourceId: 'legacy',
+          mastodonStatusId: 'legacy-id',
+          postedAt: DateTime.utc(2025, 4, 28, 11),
+          contentHash: post.contentHash,
+        ),
+      }),
+    );
+
+    final service = SyncService(
+      feedService: _FakeFeedService([post]),
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    final result = await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(result.candidatePosts, 1);
+    expect(result.postedPosts, 0);
+    expect(mastodon.updateCalls, 0);
+    expect(stateStore.state.records['legacy']!.renderedHash, post.renderedHash);
+    expect(stateStore.state.records['legacy']!.selectedMedia, [
+      'image:https://cdn.example/1.jpg:One',
+    ]);
+    expect(stateStore.state.records['legacy']!.pinned, isTrue);
+  });
+
   test('pins and unpins posts when pinned status changes', () async {
     final originalPost = OrgSocialPost(
       sourceId: 'pin-change',
@@ -369,6 +428,54 @@ void main() {
     expect(mastodon.postedPosts[1].sourceId, 'child');
     expect(mastodon.inReplyToIds[1], mastodon.statusIds[0]);
   });
+
+  test('preserves candidate count semantics for modified posts', () async {
+    final originalPost = OrgSocialPost(
+      sourceId: 'edit-me',
+      text: 'Original',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'edit-me',
+      orgMarkup: '* edit-me\nOriginal',
+    );
+    final editedPost = OrgSocialPost(
+      sourceId: 'edit-me',
+      text: 'Edited',
+      publishedAt: DateTime.utc(2025, 4, 28, 11),
+      headline: 'edit-me',
+      orgMarkup: '* edit-me\nEdited',
+    );
+
+    final service = SyncService(
+      feedService: _FakeFeedService([editedPost]),
+      mastodonClient: _FakeMastodonClient(),
+      stateStore: _MemoryStateStore(
+        SyncState({
+          'edit-me': SyncRecord(
+            sourceId: 'edit-me',
+            mastodonStatusId: 'original-id',
+            postedAt: DateTime.utc(2025, 4, 28, 11),
+            contentHash: originalPost.contentHash,
+            renderedHash: originalPost.renderedHash,
+          ),
+        }),
+      ),
+    );
+
+    final result = await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': true, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(result.candidatePosts, 1);
+    expect(result.newPosts, 1);
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
@@ -407,6 +514,7 @@ final class _FakeMastodonClient implements MastodonClient {
     String statusId,
     OrgSocialPost post, {
     List<String>? existingMediaIds,
+    List<String>? existingSelectedMedia,
   }) async {
     updateCalls += 1;
     postedPosts.add(post);

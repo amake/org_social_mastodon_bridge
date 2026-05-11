@@ -116,6 +116,7 @@ class GeneratedMastodonClient implements MastodonClient {
     String statusId,
     OrgSocialPost post, {
     List<String>? existingMediaIds,
+    List<String>? existingSelectedMedia,
   }) async {
     logger.debug('Updating Mastodon status $statusId for ${post.sourceId}');
 
@@ -131,11 +132,17 @@ class GeneratedMastodonClient implements MastodonClient {
     final selectedMedia = OrgSocialPost.selectMediaCandidates(
       post.mediaCandidates,
     );
+    final selectedMediaKeys = selectedMedia
+        .map(
+          (candidate) =>
+              '${candidate.kind.name}:${candidate.url}:${candidate.altText ?? ''}',
+        )
+        .toList(growable: false);
     final mediaIds = <String>[];
 
-    // If candidate count and existing media count match, assume they are the same
     if (existingMediaIds != null &&
-        existingMediaIds.length == selectedMedia.length) {
+        existingSelectedMedia != null &&
+        _listEquals(existingSelectedMedia, selectedMediaKeys)) {
       logger.debug('Reusing existing media IDs for update');
       mediaIds.addAll(existingMediaIds);
     } else {
@@ -496,6 +503,14 @@ class GeneratedMastodonClient implements MastodonClient {
     }
 
     return MultipartFile.lookupMediaType(filename);
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
