@@ -268,8 +268,52 @@ void main() {
       ),
     );
 
-    expect(interceptor.statusBodies[0]['visibility'], 'direct');
+    expect(interceptor.statusBodies.first['visibility'], 'direct');
     expect(interceptor.statusBodies[1]['visibility'], 'public');
+  });
+
+  test('posts a status with media and empty text', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
+      httpClient: _StubHttpClient({
+        Uri.parse('https://cdn.example/image.jpg'): _StubHttpResponse(
+          body: [1, 2, 3],
+          headers: {'content-type': 'image/jpeg'},
+        ),
+      }),
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: 'empty-text',
+        text: '',
+        publishedAt: DateTime.utc(2025, 4, 28, 11),
+        headline: 'empty-text',
+        orgMarkup: '',
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://cdn.example/image.jpg'),
+            kind: OrgSocialMediaKind.image,
+          ),
+        ],
+      ),
+    );
+
+    final statusBody = interceptor.statusBodies.single;
+    expect(statusBody['status'], '');
+    expect(statusBody['media_ids'], ['media-1']);
   });
 
   test('appends tags and mood to status text', () async {

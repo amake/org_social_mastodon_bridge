@@ -121,10 +121,12 @@ class GeneratedMastodonClient implements MastodonClient {
     required String statusId,
   }) async {
     logger.debug('Boosting Mastodon status $statusId for ${post.sourceId}');
-    final response = await _api.getStatusesApi().postStatusReblog(
-      id: statusId,
-      postStatusReblogRequest: generated.PostStatusReblogRequest(
-        (builder) => builder.visibility = _reblogVisibilityFor(post),
+    final response = await _wrapApiCall(
+      () => _api.getStatusesApi().postStatusReblog(
+        id: statusId,
+        postStatusReblogRequest: generated.PostStatusReblogRequest(
+          (builder) => builder.visibility = _reblogVisibilityFor(post),
+        ),
       ),
     );
     final status = response.data;
@@ -192,22 +194,26 @@ class GeneratedMastodonClient implements MastodonClient {
   @override
   Future<void> pinStatus(String statusId) async {
     logger.debug('Pinning Mastodon status $statusId');
-    await _api.getStatusesApi().postStatusPin(id: statusId);
+    await _wrapApiCall(() => _api.getStatusesApi().postStatusPin(id: statusId));
   }
 
   @override
   Future<void> unpinStatus(String statusId) async {
     logger.debug('Unpinning Mastodon status $statusId');
-    await _api.getStatusesApi().postStatusUnpin(id: statusId);
+    await _wrapApiCall(
+      () => _api.getStatusesApi().postStatusUnpin(id: statusId),
+    );
   }
 
   Future<MastodonPostResult> _sendRequest(
     String sourceId,
     generated.CreateStatusRequest request,
   ) async {
-    final response = await _api.getStatusesApi().createStatus(
-      createStatusRequest: request,
-      idempotencyKey: JsonObject(sourceId),
+    final response = await _wrapApiCall(
+      () => _api.getStatusesApi().createStatus(
+        createStatusRequest: request,
+        idempotencyKey: JsonObject(sourceId),
+      ),
     );
     return _parsePostResult(sourceId, response.data);
   }
@@ -217,9 +223,11 @@ class GeneratedMastodonClient implements MastodonClient {
     String sourceId,
     generated.UpdateStatusRequest request,
   ) async {
-    final response = await _api.getStatusesApi().updateStatus(
-      id: statusId,
-      updateStatusRequest: request,
+    final response = await _wrapApiCall(
+      () => _api.getStatusesApi().updateStatus(
+        id: statusId,
+        updateStatusRequest: request,
+      ),
     );
     final status = response.data;
     if (status == null) {
@@ -232,6 +240,20 @@ class GeneratedMastodonClient implements MastodonClient {
       url: status.url == null ? null : Uri.parse(status.url!),
       mediaIds: status.mediaAttachments.map((m) => m.id).toList(),
     );
+  }
+
+  Future<T> _wrapApiCall<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on DioException catch (e) {
+      if (e.response != null) {
+        logger.error(
+          'Mastodon API error: ${e.response?.statusCode} ${e.response?.statusMessage}',
+          error: e.response?.data,
+        );
+      }
+      rethrow;
+    }
   }
 
   generated.StatusVisibilityEnum _visibilityFor(OrgSocialPost post) {
@@ -460,9 +482,11 @@ class GeneratedMastodonClient implements MastodonClient {
       'Uploading ${candidate.kind.name} attachment ${candidate.url} as $filename '
       '(${response.bodyBytes.length} bytes; contentType=$contentType), altText=${candidate.altText}',
     );
-    final uploadResponse = await _api.getMediaApi().createMediaV2(
-      file: multipartFile,
-      description: candidate.altText,
+    final uploadResponse = await _wrapApiCall(
+      () => _api.getMediaApi().createMediaV2(
+        file: multipartFile,
+        description: candidate.altText,
+      ),
     );
     final uploaded = uploadResponse.data;
     if (uploaded == null) {
@@ -484,7 +508,9 @@ class GeneratedMastodonClient implements MastodonClient {
 
     for (var i = 0; i < maxRetries; i++) {
       await Future<void>.delayed(mediaPollDelay);
-      final response = await _api.getMediaApi().getMedia(id: mediaId);
+      final response = await _wrapApiCall(
+        () => _api.getMediaApi().getMedia(id: mediaId),
+      );
       final attachment = response.data;
       if (attachment == null) {
         throw StateError(
@@ -557,7 +583,9 @@ class GeneratedMastodonClient implements MastodonClient {
   @override
   Future<void> verifyCredentials() async {
     logger.debug('Calling Mastodon verify_credentials');
-    final response = await _api.getAccountsApi().getAccountsVerifyCredentials();
+    final response = await _wrapApiCall(
+      () => _api.getAccountsApi().getAccountsVerifyCredentials(),
+    );
     if (response.data == null) {
       throw StateError('Mastodon credential verification returned no account');
     }
