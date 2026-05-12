@@ -435,4 +435,64 @@ Child
 
     expect(posts.single.replyTo, isNull);
   });
+
+  test('renders org-social: mentions as @username@domain (url)', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+Check out [[org-social:https://example.com/social.org][username]]
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(
+      posts.single.text,
+      'Check out @username@example.com (https://example.com/social.org)',
+    );
+  });
+
+  test('renders org-social: mentions without description as URL', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+Check out [[org-social:https://example.com/social.org]]
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.text, 'Check out https://example.com/social.org');
+  });
+
+  test(
+    'renders org-social: mentions with username containing special chars',
+    () {
+      const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+Mention [[org-social:https://example.com/social.org][Alice Smith]]
+''';
+
+      final service = OrgSocialService();
+      final posts = service.parsePosts(
+        feedUrl: Uri.parse('https://example.com/social.org'),
+        content: content,
+      );
+
+      expect(
+        posts.single.text,
+        'Mention @Alice Smith@example.com (https://example.com/social.org)',
+      );
+    },
+  );
 }

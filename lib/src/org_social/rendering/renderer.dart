@@ -145,6 +145,29 @@ class OrgSocialRenderer {
       return 'ORG_SOCIAL_MEDIA_CANDIDATE_${collector.candidates.length - 1}';
     }
 
+    // Handle org-social: mentions
+    // Format: [[org-social:https://example.com/social.org][username]]
+    // The username is in the description, the URL is in the location
+    if (location.startsWith('org-social:')) {
+      final urlPart = location.substring('org-social:'.length);
+      final uri = Uri.tryParse(urlPart);
+      if (uri != null) {
+        // Extract username from description
+        final username = trimmedDescription ?? '';
+
+        if (username.isNotEmpty) {
+          // Extract domain from URL for @username@domain format
+          final host = uri.host;
+          final displayUsername = '@$username';
+          final displayUrl = urlPart;
+          return '$displayUsername@$host ($displayUrl)';
+        }
+
+        // No username provided, fall back to just the URL
+        return urlPart;
+      }
+    }
+
     if (trimmedDescription == null || trimmedDescription.isEmpty) {
       return location;
     }
