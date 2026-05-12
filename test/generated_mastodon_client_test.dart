@@ -423,6 +423,71 @@ void main() {
     ]);
     expect(result.mediaIds, ['media-existing']);
   });
+
+  test('posts a quote status', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
+    );
+
+    await client.postStatus(
+      OrgSocialPost(
+        sourceId: 'quote-post',
+        text: 'Checking this out',
+        publishedAt: DateTime.now(),
+        headline: 'quote-post',
+        orgMarkup: '',
+      ),
+      quoteId: '12345',
+    );
+
+    final statusBody = interceptor.statusBodies.single;
+    expect(statusBody['status'], 'Checking this out');
+    expect(statusBody['quoted_status_id'], '12345');
+  });
+
+  test('boosts a status', () async {
+    final interceptor = _StubMastodonInterceptor();
+    final client = GeneratedMastodonClient(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.example',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }).mastodon,
+      dio: Dio(BaseOptions(baseUrl: 'https://mastodon.example'))
+        ..interceptors.add(interceptor),
+      mediaPollDelay: Duration.zero,
+    );
+
+    final result = await client.boostStatus(
+      OrgSocialPost(
+        sourceId: 'boost-post',
+        text: '',
+        publishedAt: DateTime.now(),
+        headline: 'boost-post',
+        orgMarkup: '',
+      ),
+      statusId: '12345',
+    );
+
+    expect(interceptor.rebloggedStatusIds, ['12345']);
+    expect(result.statusId, '12345');
+  });
 }
 
 final class _StubMastodonInterceptor extends Interceptor {
@@ -433,6 +498,7 @@ final class _StubMastodonInterceptor extends Interceptor {
   final List<Map<String, dynamic>> updatedStatusBodies = [];
   final List<String> pinnedStatusIds = [];
   final List<String> unpinnedStatusIds = [];
+  final List<String> rebloggedStatusIds = [];
   int _mediaCounter = 0;
   int _statusCounter = 0;
 
@@ -516,6 +582,21 @@ final class _StubMastodonInterceptor extends Interceptor {
           requestOptions: options,
           statusCode: 200,
           data: _minimalStatusJson(pinMatch.group(1)!),
+        ),
+      );
+      return;
+    }
+
+    final reblogMatch = RegExp(
+      r'^/api/v1/statuses/([^/]+)/reblog$',
+    ).firstMatch(options.path);
+    if (reblogMatch != null) {
+      rebloggedStatusIds.add(reblogMatch.group(1)!);
+      handler.resolve(
+        Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: _minimalStatusJson(reblogMatch.group(1)!),
         ),
       );
       return;

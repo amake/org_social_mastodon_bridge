@@ -421,6 +421,166 @@ void main() {
 
     expect(result.candidatePosts, 1);
   });
+
+  test('appends :INCLUDE: URL to the status text', () async {
+    final post = OrgSocialPost(
+      sourceId: 'boost',
+      text: 'Check this out!',
+      publishedAt: DateTime.utc(2025, 4, 28, 12),
+      headline: 'boost',
+      include: 'https://alice.com/social.org#2025-04-28T10:00:00+0000',
+      orgMarkup: '* boost',
+    );
+    final feedService = _FakeFeedService([post]);
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(
+      mastodon.postedTexts.single,
+      'Check this out!\n\n🔁 https://alice.com/social.org#2025-04-28T10:00:00+0000',
+    );
+  });
+
+  test('boosts an internal :INCLUDE: post with no body text', () async {
+    final parent = OrgSocialPost(
+      sourceId: '2025-04-28T10:00:00+0000',
+      text: 'Original post',
+      publishedAt: DateTime.utc(2025, 4, 28, 10),
+      headline: 'parent',
+      orgMarkup: '* parent',
+    );
+    final post = OrgSocialPost(
+      sourceId: 'boost-empty',
+      text: '',
+      publishedAt: DateTime.utc(2025, 4, 28, 12),
+      headline: 'boost-empty',
+      include: 'https://example.com/social.org#2025-04-28T10:00:00+0000',
+      orgMarkup: '* boost-empty',
+    );
+    final feedService = _FakeFeedService([parent, post]);
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.postedTexts, ['Original post']);
+    expect(mastodon.boostedStatusIds, ['1']);
+  });
+
+  test('defers unresolved internal :INCLUDE: posts', () async {
+    final post = OrgSocialPost(
+      sourceId: 'deferred',
+      text: '',
+      publishedAt: DateTime.utc(2025, 4, 28, 12),
+      headline: 'deferred',
+      include: 'https://example.com/social.org#2025-04-28T10:00:00+0000',
+      orgMarkup: '* deferred',
+    );
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: _FakeFeedService([post]),
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    final result = await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(result.candidatePosts, 1);
+    expect(result.postedPosts, 0);
+    expect(mastodon.postedPosts, isEmpty);
+    expect(mastodon.boostedStatusIds, isEmpty);
+  });
+
+  test('quotes a post if it is internal', () async {
+    final parent = OrgSocialPost(
+      sourceId: '2025-04-28T10:00:00+0000',
+      text: 'Original post',
+      publishedAt: DateTime.utc(2025, 4, 28, 10),
+      headline: 'parent',
+      orgMarkup: '* parent',
+    );
+    final post = OrgSocialPost(
+      sourceId: '2025-04-28T12:00:00+0000',
+      text: 'Quoting original',
+      publishedAt: DateTime.utc(2025, 4, 28, 12),
+      headline: 'quoter',
+      include: 'https://example.com/social.org#2025-04-28T10:00:00+0000',
+      orgMarkup: '* quoter',
+    );
+    final feedService = _FakeFeedService([parent, post]);
+    final mastodon = _FakeMastodonClient();
+    final stateStore = _MemoryStateStore(SyncState.empty());
+
+    final service = SyncService(
+      feedService: feedService,
+      mastodonClient: mastodon,
+      stateStore: stateStore,
+    );
+
+    await service.run(
+      AppConfig.fromJson({
+        'source': {'feed_url': 'https://example.com/social.org'},
+        'mastodon': {
+          'base_url': 'https://mastodon.social',
+          'access_token': 'token',
+        },
+        'sync': {'dry_run': false, 'max_posts_per_run': 10},
+        'state': {'type': 'file', 'path': 'state.json'},
+      }),
+    );
+
+    expect(mastodon.postedPosts.length, 2);
+    expect(mastodon.postedTexts[0], 'Original post');
+    expect(mastodon.postedTexts[1], 'Quoting original');
+    expect(mastodon.quoteIds[0], isNull);
+    expect(mastodon.quoteIds[1], '1'); // ID of the first post
+  });
 }
 
 final class _FakeFeedService extends OrgSocialService {
@@ -435,6 +595,8 @@ final class _FakeFeedService extends OrgSocialService {
 final class _FakeMastodonClient implements MastodonClient {
   final List<OrgSocialPost> postedPosts = [];
   final List<String?> inReplyToIds = [];
+  final List<String?> quoteIds = [];
+  final List<String> boostedStatusIds = [];
   final List<String> statusIds = [];
 
   List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
@@ -446,11 +608,23 @@ final class _FakeMastodonClient implements MastodonClient {
   Future<MastodonPostResult> postStatus(
     OrgSocialPost post, {
     String? inReplyToId,
+    String? quoteId,
   }) async {
     postedPosts.add(post);
     inReplyToIds.add(inReplyToId);
+    quoteIds.add(quoteId);
     final statusId = '${statusIds.length + 1}';
     statusIds.add(statusId);
+    return MastodonPostResult(statusId: statusId, url: null);
+  }
+
+  @override
+  Future<MastodonPostResult> boostStatus(
+    OrgSocialPost post, {
+    required String statusId,
+  }) async {
+    boostedStatusIds.add(statusId);
+    this.statusIds.add(statusId);
     return MastodonPostResult(statusId: statusId, url: null);
   }
 

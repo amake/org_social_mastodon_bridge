@@ -13,7 +13,7 @@
   "sync": {
     "dry_run": false,
     "max_posts_per_run": 20,
-    "include_link": false
+    "include_source_link": false
   },
   "state": {
     "type": "file",

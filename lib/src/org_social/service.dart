@@ -110,7 +110,8 @@ class OrgSocialService {
     }
 
     final rendered = _renderer.renderSection(section, pollEndsAt: pollEndsAt);
-    if (rendered.text.isEmpty && rendered.poll == null) {
+    final include = _firstProperty(section, ':INCLUDE:');
+    if (rendered.text.isEmpty && rendered.poll == null && include == null) {
       throw FormatException('Post "$sourceId" has no body text or poll');
     }
 
@@ -148,6 +149,7 @@ class OrgSocialService {
       mood: _firstProperty(section, ':MOOD:'),
       replyTo: _parseReplyTo(feedUrl, _firstProperty(section, ':REPLY_TO:')),
       canonicalUrl: null,
+      include: include,
       mediaCandidates: rendered.mediaCandidates,
       poll: rendered.poll,
       pinned: pinnedIds.contains(sourceId),

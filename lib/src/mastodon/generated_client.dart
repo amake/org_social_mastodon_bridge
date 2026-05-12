@@ -54,6 +54,7 @@ class GeneratedMastodonClient implements MastodonClient {
   Future<MastodonPostResult> postStatus(
     OrgSocialPost post, {
     String? inReplyToId,
+    String? quoteId,
   }) async {
     logger.debug('Creating Mastodon status for ${post.sourceId}');
 
@@ -81,6 +82,7 @@ class GeneratedMastodonClient implements MastodonClient {
           post,
           expiresIn,
           inReplyToId: inReplyToId,
+          quoteId: quoteId,
         );
         return _sendRequest(post.sourceId, request);
       }
@@ -100,15 +102,41 @@ class GeneratedMastodonClient implements MastodonClient {
             post,
             appendPollOptions: poll != null,
             inReplyToId: inReplyToId,
+            quoteId: quoteId,
           )
         : _buildMediaRequest(
             post,
             mediaIds,
             appendPollOptions: poll != null,
             inReplyToId: inReplyToId,
+            quoteId: quoteId,
           );
 
     return _sendRequest(post.sourceId, request);
+  }
+
+  @override
+  Future<MastodonPostResult> boostStatus(
+    OrgSocialPost post, {
+    required String statusId,
+  }) async {
+    logger.debug('Boosting Mastodon status $statusId for ${post.sourceId}');
+    final response = await _api.getStatusesApi().postStatusReblog(
+      id: statusId,
+      postStatusReblogRequest: generated.PostStatusReblogRequest(
+        (builder) => builder.visibility = _reblogVisibilityFor(post),
+      ),
+    );
+    final status = response.data;
+    if (status == null) {
+      throw StateError(
+        'Mastodon returned an empty response for boost of $statusId',
+      );
+    }
+    return MastodonPostResult(
+      statusId: status.id,
+      url: status.url == null ? null : Uri.parse(status.url!),
+    );
   }
 
   @override
@@ -218,10 +246,18 @@ class GeneratedMastodonClient implements MastodonClient {
     };
   }
 
+  generated.StatusVisibilityEnum _reblogVisibilityFor(OrgSocialPost post) {
+    final visibility = _visibilityFor(post);
+    return visibility == generated.StatusVisibilityEnum.direct
+        ? generated.StatusVisibilityEnum.private
+        : visibility;
+  }
+
   generated.CreateStatusRequest _buildPollRequest(
     OrgSocialPost post,
     int expiresIn, {
     String? inReplyToId,
+    String? quoteId,
   }) {
     final poll = post.poll!;
     final pollParams = generated.UpdateStatusRequestPoll(
@@ -237,7 +273,8 @@ class GeneratedMastodonClient implements MastodonClient {
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning
-        ..inReplyToId = inReplyToId,
+        ..inReplyToId = inReplyToId
+        ..quotedStatusId = quoteId,
     );
 
     return generated.CreateStatusRequest(
@@ -254,6 +291,7 @@ class GeneratedMastodonClient implements MastodonClient {
     OrgSocialPost post, {
     bool appendPollOptions = false,
     String? inReplyToId,
+    String? quoteId,
   }) {
     final textStatus = generated.TextStatus(
       (builder) => builder
@@ -264,7 +302,8 @@ class GeneratedMastodonClient implements MastodonClient {
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning
-        ..inReplyToId = inReplyToId,
+        ..inReplyToId = inReplyToId
+        ..quotedStatusId = quoteId,
     );
     final request = generated.CreateStatusRequest(
       (builder) => builder.oneOf =
@@ -282,6 +321,7 @@ class GeneratedMastodonClient implements MastodonClient {
     List<String> mediaIds, {
     bool appendPollOptions = false,
     String? inReplyToId,
+    String? quoteId,
   }) {
     final statusText = _buildFinalStatusText(
       post,
@@ -294,7 +334,8 @@ class GeneratedMastodonClient implements MastodonClient {
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning
-        ..inReplyToId = inReplyToId,
+        ..inReplyToId = inReplyToId
+        ..quotedStatusId = quoteId,
     );
     return generated.CreateStatusRequest(
       (builder) => builder.oneOf =

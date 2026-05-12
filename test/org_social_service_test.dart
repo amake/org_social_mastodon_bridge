@@ -495,4 +495,49 @@ Mention [[org-social:https://example.com/social.org][Alice Smith]]
       );
     },
   );
+
+  test('extracts :INCLUDE: property for boosting', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:INCLUDE: https://alice.com/social.org#2025-04-28T10:00:00+0000
+:END:
+
+Check this out!
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(
+      posts.single.include,
+      'https://alice.com/social.org#2025-04-28T10:00:00+0000',
+    );
+  });
+
+  test('allows a bodyless :INCLUDE: post', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+:PROPERTIES:
+:INCLUDE: https://example.com/social.org#2025-04-28T10:00:00+0000
+:END:
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(posts.single.text, '');
+    expect(
+      posts.single.include,
+      'https://example.com/social.org#2025-04-28T10:00:00+0000',
+    );
+  });
 }

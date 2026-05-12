@@ -16,6 +16,12 @@ abstract interface class MastodonClient {
   Future<MastodonPostResult> postStatus(
     OrgSocialPost post, {
     String? inReplyToId,
+    String? quoteId,
+  });
+
+  Future<MastodonPostResult> boostStatus(
+    OrgSocialPost post, {
+    required String statusId,
   });
 
   Future<MastodonPostResult> updateStatus(

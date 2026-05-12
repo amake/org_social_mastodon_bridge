@@ -129,30 +129,33 @@ final class SyncConfig {
   const SyncConfig({
     this.dryRun = false,
     this.maxPostsPerRun = 20,
-    this.includeLink = false,
+    this.includeSourceLink = false,
   });
 
   factory SyncConfig.fromJson(Map<String, Object?> json) => SyncConfig(
     dryRun: json['dry_run'] as bool? ?? false,
     maxPostsPerRun: json['max_posts_per_run'] as int? ?? 20,
-    includeLink: json['include_link'] as bool? ?? false,
+    includeSourceLink: json['include_source_link'] as bool? ?? false,
   );
 
   final bool dryRun;
   final int maxPostsPerRun;
-  final bool includeLink;
+  final bool includeSourceLink;
 
-  SyncConfig copyWith({bool? dryRun, int? maxPostsPerRun, bool? includeLink}) =>
-      SyncConfig(
-        dryRun: dryRun ?? this.dryRun,
-        maxPostsPerRun: maxPostsPerRun ?? this.maxPostsPerRun,
-        includeLink: includeLink ?? this.includeLink,
-      );
+  SyncConfig copyWith({
+    bool? dryRun,
+    int? maxPostsPerRun,
+    bool? includeSourceLink,
+  }) => SyncConfig(
+    dryRun: dryRun ?? this.dryRun,
+    maxPostsPerRun: maxPostsPerRun ?? this.maxPostsPerRun,
+    includeSourceLink: includeSourceLink ?? this.includeSourceLink,
+  );
 
   Map<String, Object?> toJson() => {
     'dry_run': dryRun,
     'max_posts_per_run': maxPostsPerRun,
-    'include_link': includeLink,
+    'include_source_link': includeSourceLink,
   };
 }
 

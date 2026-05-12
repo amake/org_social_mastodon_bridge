@@ -19,6 +19,8 @@ final class SyncRecord {
     this.mastodonUrl,
     this.mediaIds = const [],
     this.pinned = false,
+    this.quotedStatusId,
+    this.boostedStatusId,
   });
 
   factory SyncRecord.fromJson(Map<String, Object?> json) => SyncRecord(
@@ -31,6 +33,8 @@ final class SyncRecord {
     mastodonUrl: json['mastodon_url'] as String?,
     mediaIds: (json['media_ids'] as List<Object?>? ?? const []).cast<String>(),
     pinned: json['pinned'] as bool? ?? false,
+    quotedStatusId: json['quoted_status_id'] as String?,
+    boostedStatusId: json['boosted_status_id'] as String?,
   );
 
   final String sourceId;
@@ -42,6 +46,8 @@ final class SyncRecord {
   final String? mastodonUrl;
   final List<String> mediaIds;
   final bool pinned;
+  final String? quotedStatusId;
+  final String? boostedStatusId;
 
   Map<String, Object?> toJson() => {
     'source_id': sourceId,
@@ -53,6 +59,8 @@ final class SyncRecord {
     if (mastodonUrl != null) 'mastodon_url': mastodonUrl,
     'media_ids': mediaIds,
     'pinned': pinned,
+    if (quotedStatusId != null) 'quoted_status_id': quotedStatusId,
+    if (boostedStatusId != null) 'boosted_status_id': boostedStatusId,
   };
 }
 
