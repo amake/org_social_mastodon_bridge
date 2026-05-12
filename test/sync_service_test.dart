@@ -581,6 +581,112 @@ void main() {
     expect(mastodon.quoteIds[0], isNull);
     expect(mastodon.quoteIds[1], '1'); // ID of the first post
   });
+
+  test(
+    'falls back to a normal post for internal :INCLUDE: with media',
+    () async {
+      final parent = OrgSocialPost(
+        sourceId: '2025-04-28T10:00:00+0000',
+        text: 'Original post',
+        publishedAt: DateTime.utc(2025, 4, 28, 10),
+        headline: 'parent',
+        orgMarkup: '* parent',
+      );
+      final post = OrgSocialPost(
+        sourceId: '2025-04-28T12:00:00+0000',
+        text: 'Comment with media',
+        publishedAt: DateTime.utc(2025, 4, 28, 12),
+        headline: 'media-quoter',
+        include: 'https://example.com/social.org#2025-04-28T10:00:00+0000',
+        mediaCandidates: [
+          OrgSocialMediaCandidate(
+            url: Uri.parse('https://example.com/image.jpg'),
+            kind: OrgSocialMediaKind.image,
+          ),
+        ],
+        orgMarkup: '* media-quoter',
+      );
+      final feedService = _FakeFeedService([parent, post]);
+      final mastodon = _FakeMastodonClient();
+      final stateStore = _MemoryStateStore(SyncState.empty());
+
+      final service = SyncService(
+        feedService: feedService,
+        mastodonClient: mastodon,
+        stateStore: stateStore,
+      );
+
+      await service.run(
+        AppConfig.fromJson({
+          'source': {'feed_url': 'https://example.com/social.org'},
+          'mastodon': {
+            'base_url': 'https://mastodon.social',
+            'access_token': 'token',
+          },
+          'sync': {'dry_run': false, 'max_posts_per_run': 10},
+          'state': {'type': 'file', 'path': 'state.json'},
+        }),
+      );
+
+      expect(mastodon.quoteIds, [isNull, isNull]);
+      expect(
+        mastodon.postedTexts[1],
+        contains('🔁 https://example.com/social.org#2025-04-28T10:00:00+0000'),
+      );
+    },
+  );
+
+  test(
+    'falls back to a normal post for internal :INCLUDE: with poll',
+    () async {
+      final parent = OrgSocialPost(
+        sourceId: '2025-04-28T10:00:00+0000',
+        text: 'Original post',
+        publishedAt: DateTime.utc(2025, 4, 28, 10),
+        headline: 'parent',
+        orgMarkup: '* parent',
+      );
+      final post = OrgSocialPost(
+        sourceId: '2025-04-28T12:00:00+0000',
+        text: 'Comment with poll',
+        publishedAt: DateTime.utc(2025, 4, 28, 12),
+        headline: 'poll-quoter',
+        include: 'https://example.com/social.org#2025-04-28T10:00:00+0000',
+        poll: OrgSocialPoll(
+          endsAt: DateTime.now().add(const Duration(days: 1)),
+          options: ['Yes', 'No'],
+        ),
+        orgMarkup: '* poll-quoter',
+      );
+      final feedService = _FakeFeedService([parent, post]);
+      final mastodon = _FakeMastodonClient();
+      final stateStore = _MemoryStateStore(SyncState.empty());
+
+      final service = SyncService(
+        feedService: feedService,
+        mastodonClient: mastodon,
+        stateStore: stateStore,
+      );
+
+      await service.run(
+        AppConfig.fromJson({
+          'source': {'feed_url': 'https://example.com/social.org'},
+          'mastodon': {
+            'base_url': 'https://mastodon.social',
+            'access_token': 'token',
+          },
+          'sync': {'dry_run': false, 'max_posts_per_run': 10},
+          'state': {'type': 'file', 'path': 'state.json'},
+        }),
+      );
+
+      expect(mastodon.quoteIds, [isNull, isNull]);
+      expect(
+        mastodon.postedTexts[1],
+        contains('🔁 https://example.com/social.org#2025-04-28T10:00:00+0000'),
+      );
+    },
+  );
 }
 
 final class _FakeFeedService extends OrgSocialService {

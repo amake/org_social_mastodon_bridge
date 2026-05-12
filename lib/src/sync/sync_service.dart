@@ -338,9 +338,10 @@ class SyncService {
         : newMastodonIds[includeId] ??
               state.records[includeId]?.mastodonStatusId;
 
-    final desiredMode = resolvedTargetId == null
-        ? _statusMode
-        : (_hasOwnContent(post) ? _quoteMode : _boostMode);
+    final desiredMode = _desiredPublicationMode(
+      post,
+      resolvedTargetId: resolvedTargetId,
+    );
 
     final existingMode = record?.boostedStatusId != null
         ? _boostMode
@@ -377,10 +378,36 @@ class SyncService {
     );
   }
 
+  String _desiredPublicationMode(
+    OrgSocialPost post, {
+    required String? resolvedTargetId,
+  }) {
+    if (resolvedTargetId == null) {
+      return _statusMode;
+    }
+    if (!_hasOwnContent(post)) {
+      return _boostMode;
+    }
+    if (_canQuote(post)) {
+      return _quoteMode;
+    }
+    logger.warning(
+      'Post ${post.sourceId} references an internal :INCLUDE:, but quote posts '
+      'cannot include media or polls. Falling back to a normal post with the '
+      'included URL in the text.',
+    );
+    return _statusMode;
+  }
+
   bool _hasOwnContent(OrgSocialPost post) =>
       post.text.trim().isNotEmpty ||
       post.mediaCandidates.isNotEmpty ||
       post.poll != null;
+
+  bool _canQuote(OrgSocialPost post) =>
+      post.text.trim().isNotEmpty &&
+      post.mediaCandidates.isEmpty &&
+      post.poll == null;
 }
 
 final class _Publication {
