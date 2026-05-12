@@ -51,8 +51,57 @@ See [[https://example.com][Example website]] and https://example.net.
 
     expect(
       posts.single.text,
-      'Hello *bold*, _italic_, and `code`.\n'
+      'Hello *bold*, _italic_, and `code`. '
       'See Example website (https://example.com) and https://example.net.',
+    );
+  });
+
+  test('reflows soft-wrapped paragraph text into a single paragraph', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+This is a paragraph that was filled in Org mode and
+should become a single paragraph when rendered for
+Mastodon.
+
+This second paragraph should stay separate.
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(
+      posts.single.text,
+      'This is a paragraph that was filled in Org mode and should become a '
+      'single paragraph when rendered for Mastodon.\n\n'
+      'This second paragraph should stay separate.',
+    );
+  });
+
+  test('reflows wrapped list items without collapsing list boundaries', () {
+    const content = '''
+* Posts
+** 2025-04-28T12:00:00+0100
+
+- First item wraps onto
+  a second line
+- Second item stays
+  separate
+''';
+
+    final service = OrgSocialService();
+    final posts = service.parsePosts(
+      feedUrl: Uri.parse('https://example.com/social.org'),
+      content: content,
+    );
+
+    expect(
+      posts.single.text,
+      '- First item wraps onto a second line\n- Second item stays separate',
     );
   });
 

@@ -63,7 +63,7 @@ class OrgSocialRenderer {
       }
       final body = item.body == null
           ? ''
-          : _renderInline(item.body!, collector).trim();
+          : _renderFlowText(item.body!, collector);
       if (body.isNotEmpty) {
         options.add(body);
       }
@@ -73,7 +73,7 @@ class OrgSocialRenderer {
 
   String _renderBlock(OrgNode node, _MediaCollector collector) {
     return switch (node) {
-      OrgParagraph(:final body) => _renderInline(body, collector).trim(),
+      OrgParagraph(:final body) => _renderFlowText(body, collector),
       OrgList() => _renderList(node, collector),
       OrgDrawer() => '',
       OrgContent(:final children) =>
@@ -91,14 +91,14 @@ class OrgSocialRenderer {
         .map((item) {
           final body = item.body == null
               ? ''
-              : _renderInline(item.body!, collector).trim();
+              : _renderFlowText(item.body!, collector);
           if (body.isEmpty) {
             return '';
           }
           final checkbox = item.checkbox == null ? '' : '${item.checkbox} ';
           final bullet = switch (item) {
-            OrgListOrderedItem() => '${item.bullet} ',
-            OrgListUnorderedItem() => '${item.bullet} ',
+            OrgListOrderedItem() => '${item.bullet.trimRight()} ',
+            OrgListUnorderedItem() => '${item.bullet.trimRight()} ',
           };
           return '$bullet$checkbox$body'.trimRight();
         })
@@ -208,6 +208,14 @@ class OrgSocialRenderer {
       }
     }
     return null;
+  }
+
+  String _renderFlowText(OrgNode node, _MediaCollector collector) {
+    return _normalizeFlowWhitespace(_renderInline(node, collector));
+  }
+
+  String _normalizeFlowWhitespace(String text) {
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }
 
