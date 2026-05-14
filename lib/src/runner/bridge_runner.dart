@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:http/http.dart' as http;
 
 import '../config/config.dart';
@@ -112,7 +114,7 @@ class BridgeRunner {
     if (configPath == null) return null;
     try {
       return await AppConfig.loadFile(configPath);
-    } catch (e) {
+    } on FileSystemException catch (e) {
       logger.debug('Could not load config from $configPath: $e');
       return null;
     }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../config/config.dart';
 import '../logging/logging.dart';
 import '../mastodon/client.dart';
@@ -346,7 +348,7 @@ class SyncService {
 
     final feedUrl = switch (source) {
       UrlSource(url: final url) => url,
-      FileSource(path: final path) => Uri.file(path),
+      FileSource(path: final path) => File(path).absolute.uri,
     };
 
     for (final post in posts) {
@@ -394,7 +396,7 @@ class SyncService {
     final posts = await feedService.fetchSource(source);
     final feedUrl = switch (source) {
       UrlSource(url: final url) => url,
-      FileSource(path: final path) => Uri.file(path),
+      FileSource(path: final path) => File(path).absolute.uri,
     };
     return lintPosts(
       posts,

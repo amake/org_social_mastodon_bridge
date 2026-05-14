@@ -112,6 +112,52 @@ Preview me!
         await tempFile.delete();
       }
     });
+
+    test('preview from local file works without a config file', () async {
+      final tempFile = File('test_preview_no_config.org');
+      await tempFile.writeAsString('''
+* Posts
+** 2024-05-14T12:00:00Z
+No config needed.
+''');
+
+      try {
+        final runner = BridgeRunner();
+        final result = await runner.previewSource(
+          FileSource(tempFile.path),
+          configPath: 'does-not-exist.json',
+        );
+        expect(result.posts, hasLength(1));
+        expect(result.posts.first.text, contains('No config needed.'));
+      } finally {
+        await tempFile.delete();
+      }
+    });
+
+    test('preview from local file surfaces malformed config errors', () async {
+      final tempFile = File('test_preview_bad_config.org');
+      final badConfig = File('bad_config.json');
+      await tempFile.writeAsString('''
+* Posts
+** 2024-05-14T12:00:00Z
+Bad config should not be ignored.
+''');
+      await badConfig.writeAsString('{not valid json');
+
+      try {
+        final runner = BridgeRunner();
+        await expectLater(
+          () => runner.previewSource(
+            FileSource(tempFile.path),
+            configPath: badConfig.path,
+          ),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        await tempFile.delete();
+        await badConfig.delete();
+      }
+    });
   });
 }
 

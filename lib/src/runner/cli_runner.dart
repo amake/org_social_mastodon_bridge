@@ -9,6 +9,8 @@ import '../mastodon/auth_service.dart';
 import '../org_social/source.dart';
 import 'bridge_runner.dart';
 
+const _placeholderFeedUrl = 'https://example.invalid/social.org';
+
 class OsmbCommandRunner extends CommandRunner<int> {
   OsmbCommandRunner() : super('osmb', 'Org Social Mastodon Bridge CLI') {
     argParser.addOption('config', abbr: 'c', help: 'Path to config file');
@@ -89,7 +91,7 @@ class InitCommand extends OsmbCommand {
     final feedUrlStr = stdin.readLineSync()?.trim();
     final feedUrl = feedUrlStr != null && feedUrlStr.isNotEmpty
         ? Uri.parse(feedUrlStr)
-        : Uri.parse('https://example.com/social.org');
+        : Uri.parse(_placeholderFeedUrl);
 
     final statePath = locator.defaultStatePath;
 
@@ -109,6 +111,11 @@ class InitCommand extends OsmbCommand {
 
     stdout.writeln('Created config at $configPath');
     stdout.writeln('State will be stored at $statePath');
+    if (feedUrl.toString() == _placeholderFeedUrl) {
+      stdout.writeln(
+        'No source feed configured yet. Update source.feed_url before running sync.',
+      );
+    }
     stdout.writeln();
     stdout.write('Would you like to run "osmb auth" now? (Y/n) ');
     final authResponse = stdin.readLineSync()?.toLowerCase();
@@ -231,11 +238,7 @@ class PreviewCommand extends OsmbCommand {
   @override
   Future<int> run() async {
     final sourceArg = argResults?.rest.firstOrNull;
-    final source = sourceArg != null
-        ? (Uri.tryParse(sourceArg)?.hasScheme ?? false
-              ? UrlSource(Uri.parse(sourceArg))
-              : FileSource(sourceArg))
-        : null;
+    final source = sourceArg == null ? null : _parseSourceArg(sourceArg);
 
     if (source == null) {
       // Use configured source if no explicit source provided
@@ -293,9 +296,7 @@ class LintCommand extends OsmbCommand {
       throw UsageException('Source is required for lint', usage);
     }
 
-    final source = Uri.tryParse(sourceArg)?.hasScheme ?? false
-        ? UrlSource(Uri.parse(sourceArg))
-        : FileSource(sourceArg);
+    final source = _parseSourceArg(sourceArg);
 
     final result = await runner_.lintSource(
       source,
@@ -313,4 +314,18 @@ class LintCommand extends OsmbCommand {
 
     return result.hasErrors ? 1 : 0;
   }
+}
+
+OrgSocialSource _parseSourceArg(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri != null && uri.hasScheme) {
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'http' || scheme == 'https') {
+      return UrlSource(uri);
+    }
+    if (scheme == 'file') {
+      return FileSource(uri.toFilePath());
+    }
+  }
+  return FileSource(value);
 }
