@@ -85,6 +85,9 @@ final class MastodonConfig {
     this.visibility = 'public',
     this.language,
     this.appWebsite,
+    this.maxCharacters,
+    this.charactersReservedPerUrl,
+    this.maxMediaAttachments,
   });
 
   factory MastodonConfig.fromJson(Map<String, Object?> json) => switch (json) {
@@ -104,6 +107,9 @@ final class MastodonConfig {
           {'app_website': String website} => website,
           _ => null,
         },
+        maxCharacters: json['max_characters'] as int?,
+        charactersReservedPerUrl: json['characters_reserved_per_url'] as int?,
+        maxMediaAttachments: json['max_media_attachments'] as int?,
       ),
     _ => throw const FormatException(
       'Expected mastodon.base_url and mastodon.access_token to be non-empty strings',
@@ -115,6 +121,9 @@ final class MastodonConfig {
   final String visibility;
   final String? language;
   final String? appWebsite;
+  final int? maxCharacters;
+  final int? charactersReservedPerUrl;
+  final int? maxMediaAttachments;
 
   Map<String, Object?> toJson() => {
     'base_url': baseUrl.toString(),
@@ -122,6 +131,11 @@ final class MastodonConfig {
     'visibility': visibility,
     if (language != null) 'language': language,
     if (appWebsite != null) 'app_website': appWebsite,
+    if (maxCharacters != null) 'max_characters': maxCharacters,
+    if (charactersReservedPerUrl != null)
+      'characters_reserved_per_url': charactersReservedPerUrl,
+    if (maxMediaAttachments != null)
+      'max_media_attachments': maxMediaAttachments,
   };
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:org_parser/org_parser.dart';
@@ -8,6 +9,7 @@ import '../config/config.dart';
 import '../logging/logging.dart';
 import 'post.dart';
 import 'rendering/renderer.dart';
+import 'source.dart';
 
 class OrgSocialService {
   OrgSocialService({http.Client? httpClient})
@@ -18,18 +20,38 @@ class OrgSocialService {
   final OrgSocialRenderer _renderer;
 
   Future<List<OrgSocialPost>> fetchPosts(SourceConfig config) async {
-    logger.debug('Fetching Org Social feed from ${config.feedUrl}');
-    final response = await _httpClient.get(config.feedUrl);
+    return fetchSource(UrlSource(config.feedUrl));
+  }
+
+  Future<List<OrgSocialPost>> fetchSource(OrgSocialSource source) async {
+    return switch (source) {
+      UrlSource(url: final url) => _fetchUrl(url),
+      FileSource(path: final path) => _fetchFile(path),
+    };
+  }
+
+  Future<List<OrgSocialPost>> _fetchUrl(Uri url) async {
+    logger.debug('Fetching Org Social feed from $url');
+    final response = await _httpClient.get(url);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError(
-        'Failed to fetch ${config.feedUrl}: HTTP ${response.statusCode}',
-      );
+      throw StateError('Failed to fetch $url: HTTP ${response.statusCode}');
     }
     logger.debug(
-      'Fetched ${response.body.length} bytes from ${config.feedUrl} '
+      'Fetched ${response.body.length} bytes from $url '
       '(HTTP ${response.statusCode})',
     );
-    return parsePosts(feedUrl: config.feedUrl, content: response.body);
+    return parsePosts(feedUrl: url, content: response.body);
+  }
+
+  Future<List<OrgSocialPost>> _fetchFile(String path) async {
+    logger.debug('Reading Org Social file from $path');
+    final file = File(path);
+    if (!await file.exists()) {
+      throw FileSystemException('Org Social file not found', path);
+    }
+    final content = await file.readAsString();
+    logger.debug('Read ${content.length} characters from $path');
+    return parsePosts(feedUrl: Uri.file(file.absolute.path), content: content);
   }
 
   List<OrgSocialPost> parsePosts({

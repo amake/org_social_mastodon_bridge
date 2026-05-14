@@ -26,7 +26,7 @@ generate: ## Generate the Mastodon OpenAPI client
 .PHONY: auth
 auth: ## Obtain/update the Mastodon access token interactively
 auth:
-	dart run bin/auth_setup.dart $(config)
+	dart run bin/osmb.dart auth --config $(config)
 
 .PHONY: test
 test: ## Run tests
@@ -44,12 +44,12 @@ analyze: ## Run static analysis
 .PHONY: run
 run: ## Run one local sync pass
 	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
-		dart run bin/org_social_mastodon_bridge.dart $(config)
+		dart run bin/osmb.dart sync --config $(config)
 
 .PHONY: preview
 preview: ## Preview rendered posts and Mastodon character counts
 	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
-		dart run bin/org_social_mastodon_bridge.dart --preview $(config)
+		dart run bin/osmb.dart preview --config $(config)
 
 .PHONY: provision
 provision: ## Transition to Lambda: push state to S3 and config to envars

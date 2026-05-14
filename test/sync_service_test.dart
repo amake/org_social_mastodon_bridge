@@ -149,7 +149,7 @@ void main() {
           isA<StateError>().having(
             (error) => error.message,
             'message',
-            contains('too-long: 10/5'),
+            contains('[too-long] ERROR: Post exceeds character limit: 10/5'),
           ),
         ),
       );

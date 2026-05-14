@@ -4,7 +4,9 @@ import '../mastodon/client.dart';
 import '../mastodon/status_logic.dart';
 import '../org_social/post.dart';
 import '../org_social/service.dart';
+import '../org_social/source.dart';
 import '../state/state_store.dart';
+import 'lint.dart';
 
 final class SyncResult {
   const SyncResult({
@@ -327,6 +329,195 @@ class SyncService {
     return SyncPreviewResult(limits: limits, posts: previews);
   }
 
+  Future<SyncPreviewResult> previewSource(
+    OrgSocialSource source, {
+    required bool includeSourceLink,
+    MastodonInstanceLimits? limits,
+    SyncState? state,
+  }) async {
+    final resolvedLimits =
+        limits ??
+        (await _safeGetInstanceLimits()) ??
+        MastodonInstanceLimits.defaultLimits;
+    final posts = await feedService.fetchSource(source);
+    final resolvedState = state ?? SyncState.empty();
+    final previews = <SyncPostPreview>[];
+    final simulatedNewMastodonIds = <String, String>{};
+
+    final feedUrl = switch (source) {
+      UrlSource(url: final url) => url,
+      FileSource(path: final path) => Uri.file(path),
+    };
+
+    for (final post in posts) {
+      final record = resolvedState.records[post.sourceId];
+      final publication = _resolvePublication(
+        post,
+        record: record,
+        state: resolvedState,
+        newMastodonIds: simulatedNewMastodonIds,
+        includeSourceLink: includeSourceLink,
+        feedUrl: feedUrl,
+      );
+      final action = _candidateReason(record, publication.preparedPost);
+      final preview = previewMastodonStatus(
+        publication.preparedPost,
+        resolvedLimits,
+      );
+      previews.add(
+        SyncPostPreview(
+          sourceId: post.sourceId,
+          action: action,
+          publicationMode: publication.effectiveMode,
+          text: preview.text,
+          characterCount: publication.effectiveMode == _boostMode
+              ? 0
+              : preview.characterCount,
+          maxCharacters: resolvedLimits.maxCharacters,
+          deferred: publication.shouldDefer,
+        ),
+      );
+      if (record == null && !publication.shouldDefer) {
+        simulatedNewMastodonIds[post.sourceId] = 'preview-${post.sourceId}';
+      }
+    }
+
+    return SyncPreviewResult(limits: resolvedLimits, posts: previews);
+  }
+
+  Future<LintResult> lintSource(
+    OrgSocialSource source, {
+    required bool includeSourceLink,
+    MastodonInstanceLimits? limits,
+    SyncState? state,
+  }) async {
+    final posts = await feedService.fetchSource(source);
+    final feedUrl = switch (source) {
+      UrlSource(url: final url) => url,
+      FileSource(path: final path) => Uri.file(path),
+    };
+    return lintPosts(
+      posts,
+      feedUrl: feedUrl,
+      includeSourceLink: includeSourceLink,
+      limits: limits,
+      state: state,
+    );
+  }
+
+  Future<LintResult> lintPosts(
+    List<OrgSocialPost> posts, {
+    required Uri feedUrl,
+    required bool includeSourceLink,
+    MastodonInstanceLimits? limits,
+    SyncState? state,
+  }) async {
+    final resolvedLimits =
+        limits ??
+        (await _safeGetInstanceLimits()) ??
+        MastodonInstanceLimits.defaultLimits;
+    final resolvedState = state ?? SyncState.empty();
+    final findings = <LintFinding>[];
+    final simulatedNewMastodonIds = <String, String>{};
+
+    for (final post in posts) {
+      final record = resolvedState.records[post.sourceId];
+      final publication = _resolvePublication(
+        post,
+        record: record,
+        state: resolvedState,
+        newMastodonIds: simulatedNewMastodonIds,
+        includeSourceLink: includeSourceLink,
+        feedUrl: feedUrl,
+      );
+
+      final status = composeMastodonStatus(publication.preparedPost);
+      final charCount = countMastodonCharacters(
+        status.text,
+        charactersReservedPerUrl: resolvedLimits.charactersReservedPerUrl,
+      );
+
+      if (publication.effectiveMode != _boostMode &&
+          charCount > resolvedLimits.maxCharacters) {
+        findings.add(
+          LintFinding(
+            severity: LintSeverity.error,
+            code: 'character_limit_exceeded',
+            message:
+                'Post exceeds character limit: $charCount/${resolvedLimits.maxCharacters}',
+            sourceId: post.sourceId,
+          ),
+        );
+      }
+
+      if (status.pollHasTooManyOptions) {
+        findings.add(
+          LintFinding(
+            severity: LintSeverity.warning,
+            code: 'poll_too_many_options',
+            message:
+                'Poll has ${post.poll?.options.length} options, but Mastodon supports only 4. '
+                'It will be appended to the status text as checkboxes.',
+            sourceId: post.sourceId,
+          ),
+        );
+      }
+
+      if (status.pollExpired) {
+        findings.add(
+          LintFinding(
+            severity: LintSeverity.warning,
+            code: 'poll_expired',
+            message: 'Poll expiration date is in the past.',
+            sourceId: post.sourceId,
+          ),
+        );
+      }
+
+      if (publication.modeChanged) {
+        findings.add(
+          LintFinding(
+            severity: LintSeverity.warning,
+            code: 'publication_mode_changed',
+            message:
+                'Post changed publication mode from ${publication.existingMode} '
+                'to ${publication.desiredMode}, but Mastodon does not support '
+                'changing that via edit. Keeping existing mode.',
+            sourceId: post.sourceId,
+          ),
+        );
+      }
+
+      if (publication.shouldDefer) {
+        findings.add(
+          LintFinding(
+            severity: LintSeverity.warning,
+            code: 'deferred_publication',
+            message:
+                'Post includes ${post.include} which has no known Mastodon ID yet. '
+                'Publication will be deferred.',
+            sourceId: post.sourceId,
+          ),
+        );
+      }
+
+      if (record == null && !publication.shouldDefer) {
+        simulatedNewMastodonIds[post.sourceId] = 'lint-${post.sourceId}';
+      }
+    }
+
+    return LintResult(findings: findings);
+  }
+
+  Future<MastodonInstanceLimits?> _safeGetInstanceLimits() async {
+    try {
+      return await mastodonClient.getInstanceLimits();
+    } catch (e) {
+      logger.warning('Failed to fetch Mastodon instance limits: $e');
+      return null;
+    }
+  }
+
   List<String> _selectedMediaKeys(
     OrgSocialPost post,
   ) => OrgSocialPost.selectMediaCandidates(post.mediaCandidates)
@@ -370,40 +561,20 @@ class SyncService {
     required SyncState existingState,
     required AppConfig config,
   }) async {
-    final limits = await mastodonClient.getInstanceLimits();
-    final simulatedNewMastodonIds = <String, String>{};
-    final violations = <String>[];
+    final result = await lintPosts(
+      candidates,
+      feedUrl: config.source.feedUrl,
+      includeSourceLink: config.sync.includeSourceLink,
+      state: existingState,
+    );
 
-    for (final post in candidates) {
-      final record = existingState.records[post.sourceId];
-      final publication = _resolvePublication(
-        post,
-        record: record,
-        state: existingState,
-        newMastodonIds: simulatedNewMastodonIds,
-        includeSourceLink: config.sync.includeSourceLink,
-        feedUrl: config.source.feedUrl,
-      );
-
-      if (publication.effectiveMode != _boostMode) {
-        final preview = previewMastodonStatus(publication.preparedPost, limits);
-        if (preview.exceedsLimit) {
-          violations.add(
-            '${post.sourceId}: ${preview.characterCount}/${limits.maxCharacters}\n'
-            '${preview.text}',
-          );
-        }
-      }
-
-      if (record == null && !publication.shouldDefer) {
-        simulatedNewMastodonIds[post.sourceId] = 'planned-${post.sourceId}';
-      }
-    }
-
-    if (violations.isNotEmpty) {
+    if (result.hasErrors) {
+      final errors = result.findings
+          .where((f) => f.severity == LintSeverity.error)
+          .join('\n\n');
       throw StateError(
-        'One or more posts exceed the Mastodon character limit for '
-        '${config.mastodon.baseUrl}:\n\n${violations.join('\n\n')}',
+        'One or more posts have lint errors for '
+        '${config.mastodon.baseUrl}:\n\n$errors',
       );
     }
   }

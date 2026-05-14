@@ -10,6 +10,12 @@ final class MastodonInstanceLimits {
   final int maxCharacters;
   final int charactersReservedPerUrl;
   final int maxMediaAttachments;
+
+  static const defaultLimits = MastodonInstanceLimits(
+    maxCharacters: 500,
+    charactersReservedPerUrl: 23,
+    maxMediaAttachments: 4,
+  );
 }
 
 enum MastodonPollHandling { none, native, appendToText }
