@@ -2,74 +2,110 @@
 
 Sync an [Org Social](https://org-social.org/) feed to a Mastodon account.
 
-This project:
+This project provides a CLI tool `osmb` to:
 
-- fetches a configured `social.org` feed
-- parses it with [`org_parser`](https://pub.dev/packages/org_parser)
-- posts unseen items to Mastodon oldest-first
-- persists sync state so repeated runs are idempotent
-- supports local execution and AWS Lambda ZIP deployment on `provided.al2023`
+- fetch and parse `social.org` feeds
+- lint and preview posts against Mastodon character limits
+- sync posts to Mastodon with idempotency and state management
+- support local authoring with local `.org` file inputs
 
-The Mastodon client is generated from the published
-[`mastodon-openapi`](https://github.com/abraham/mastodon-openapi) schema using
-[`openapi_generator`](https://pub.dev/packages/openapi_generator).
-`make generate` also reapplies a small deterministic compatibility patch set to
-the generated package.
+It also supports scheduled execution via AWS Lambda.
 
-## Example
+## Installation
 
-This project powers the [Orgro official Mastodon
-account](https://mastodon.social/@orgro) sourcing from the [Orgro official Org
-Social feed](https://social.orgro.org/).
+```sh
+dart pub global activate --source path .
+```
+
+(Note: Once published, you will be able to run `dart pub global activate org_social_mastodon_bridge`)
+
+## CLI Usage
+
+The `osmb` CLI is the primary way to interact with the bridge.
+
+### `osmb init`
+
+Interactive setup to bootstrap your configuration.
+
+```sh
+osmb init
+```
+
+This will prompt for your Mastodon instance and default feed URL, then create a configuration file at `~/.org_social_mastodon_bridge/config.json`.
+
+### `osmb auth`
+
+Perform or refresh Mastodon OAuth authorization.
+
+```sh
+osmb auth
+```
+
+This registers an application on your instance (if needed) and guides you through the OAuth flow to obtain an access token.
+
+### `osmb lint [SOURCE]`
+
+Check a source for errors or Mastodon limit violations. `SOURCE` can be a local file path or a URL.
+
+```sh
+osmb lint my_posts.org
+```
+
+### `osmb preview [SOURCE]`
+
+Render posts as they would be sent to Mastodon, showing character counts and publication modes.
+
+```sh
+osmb preview my_posts.org
+```
+
+### `osmb sync`
+
+Perform a synchronization pass using the configured source.
+
+```sh
+osmb sync
+osmb sync --dry-run
+```
 
 ## Config
 
-Copy `config.example.json` to `config.json` and fill in the secret values.
+By default, `osmb` looks for configuration at `~/.org_social_mastodon_bridge/config.json`. You can override this with the `-c` or `--config` flag, or by setting the `ORG_SOCIAL_MASTODON_BRIDGE_CONFIG` environment variable.
 
-The important sections are:
+The configuration file contains:
 
 - `source.feed_url`: URL of the Org Social feed to mirror
-- `mastodon.base_url`: base URL of the target instance
-- `mastodon.access_token`: posting token for the target account
-- `sync.dry_run`: local safety switch
-- `state`: either a local JSON file or an S3 object for Lambda runs
-- `remote_state`: (Optional) S3 target configuration for transition to Lambda
+- `mastodon.base_url`: Base URL of the target instance
+- `mastodon.access_token`: Posting token for the target account
+- `sync.dry_run`: Safety switch to prevent actual posting
+- `sync.include_source_link`: Whether to append a link to the original post
+- `state`: Configuration for the state store (local file or S3)
 
-## Common Commands
+### Manual Limit Overrides
 
-- `make deps`
-- `make generate`
-- `make auth`
-- `make analyze`
-- `make test`
-- `make run`
-- `make preview`
-- `make provision`
-- `make build`
-- `make deploy`
-- `make invoke`
+For offline linting or specific instance needs, you can override Mastodon limits in `config.json`:
 
-`make run` executes one sync pass against `config.json`.
-`make preview` renders each post as the bridge would send it to Mastodon,
-fetches the instance-specific character limits, and prints per-post counts
-before posting anything.
-`make provision` transitions from local to Lambda: it uploads your local state
-file to the S3 bucket configured in `remote_state` and pushes your full
-configuration to the Lambda's environment variables.
+```json
+"mastodon": {
+  "max_characters": 500,
+  "characters_reserved_per_url": 23,
+  "max_media_attachments": 4
+}
+```
 
-`make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for
-verbose local runs.
+## Common Development Commands
 
-You can also run preview mode directly with:
+These commands use `make` and typically target a local `config.json` in the repository root.
 
-- `dart run bin/org_social_mastodon_bridge.dart --preview`
-- `dart run bin/org_social_mastodon_bridge.dart preview`
-
-`make auth` performs the Mastodon OAuth flow interactively. It will register an
-application if needed, print an authorization URL, prompt for the returned
-code, and write `mastodon.access_token` back into `config.json`. It also stores
-`mastodon.client_id`, `mastodon.client_secret`, and `mastodon.app_name` for
-reuse.
+- `make deps`: Install dependencies
+- `make generate`: Generate the Mastodon OpenAPI client
+- `make test`: Run tests
+- `make analyze`: Run static analysis
+- `make sync`: Run one sync pass (uses `osmb sync`)
+- `make preview`: Preview configured source (uses `osmb preview`)
+- `make provision`: Transition to Lambda: push state to S3 and config to environment variables
+- `make build`: Build the Lambda ZIP payload
+- `make deploy`: Update the Lambda function code
 
 ## Logging
 

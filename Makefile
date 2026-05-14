@@ -41,8 +41,8 @@ lint: analyze
 analyze: ## Run static analysis
 	dart analyze
 
-.PHONY: run
-run: ## Run one local sync pass
+.PHONY: sync
+sync: ## Run one local sync pass
 	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
 		dart run bin/osmb.dart sync --config $(config)
 
