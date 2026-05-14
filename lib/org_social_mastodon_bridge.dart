@@ -4,6 +4,7 @@ export 'src/config/config.dart';
 export 'src/logging/logging.dart';
 export 'src/mastodon/client.dart';
 export 'src/mastodon/generated_client.dart';
+export 'src/mastodon/status_logic.dart';
 export 'src/org_social/post.dart';
 export 'src/org_social/service.dart';
 export 'src/runner/bridge_runner.dart';

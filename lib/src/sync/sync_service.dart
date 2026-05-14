@@ -1,6 +1,7 @@
 import '../config/config.dart';
 import '../logging/logging.dart';
 import '../mastodon/client.dart';
+import '../mastodon/status_logic.dart';
 import '../org_social/post.dart';
 import '../org_social/service.dart';
 import '../state/state_store.dart';
@@ -17,6 +18,35 @@ final class SyncResult {
   final int candidatePosts;
   final int postedPosts;
   final bool dryRun;
+}
+
+final class SyncPreviewResult {
+  const SyncPreviewResult({required this.limits, required this.posts});
+
+  final MastodonInstanceLimits limits;
+  final List<SyncPostPreview> posts;
+}
+
+final class SyncPostPreview {
+  const SyncPostPreview({
+    required this.sourceId,
+    required this.action,
+    required this.publicationMode,
+    required this.text,
+    required this.characterCount,
+    required this.maxCharacters,
+    required this.deferred,
+  });
+
+  final String sourceId;
+  final String action;
+  final String publicationMode;
+  final String text;
+  final int characterCount;
+  final int maxCharacters;
+  final bool deferred;
+
+  bool get exceedsLimit => characterCount > maxCharacters;
 }
 
 class SyncService {
@@ -38,32 +68,25 @@ class SyncService {
     logger.info('Starting sync run');
     final existingState = await stateStore.load();
     final posts = await feedService.fetchPosts(config.source);
-
-    final unseen = posts
-        .where((post) {
-          final record = existingState.records[post.sourceId];
-          if (record == null) return true;
-          final publication = _resolvePublication(
-            post,
-            record: record,
-            state: existingState,
-            newMastodonIds: const {},
-            includeSourceLink: config.sync.includeSourceLink,
-            feedUrl: config.source.feedUrl,
-          );
-          final currentPost = publication.preparedPost;
-          if (record.contentHash != currentPost.contentHash) return true;
-          if (record.renderedHash != currentPost.renderedHash) {
-            return true;
-          }
-          return false;
-        })
-        .toList(growable: false);
+    final unseen = _findCandidatePosts(
+      posts,
+      existingState: existingState,
+      includeSourceLink: config.sync.includeSourceLink,
+      feedUrl: config.source.feedUrl,
+    );
 
     logger.info(
       'Loaded ${posts.length} posts, found ${unseen.length} unseen or modified '
       '(dry_run=${config.sync.dryRun})',
     );
+
+    if (unseen.isNotEmpty) {
+      await _validateCandidateLengths(
+        unseen,
+        existingState: existingState,
+        config: config,
+      );
+    }
 
     if (!config.sync.dryRun && unseen.isNotEmpty) {
       logger.debug('Verifying Mastodon credentials');
@@ -263,6 +286,47 @@ class SyncService {
     );
   }
 
+  Future<SyncPreviewResult> preview(AppConfig config) async {
+    logger.info('Starting preview run');
+    final state = await stateStore.load();
+    final posts = await feedService.fetchPosts(config.source);
+    final limits = await mastodonClient.getInstanceLimits();
+    final previews = <SyncPostPreview>[];
+    final simulatedNewMastodonIds = <String, String>{};
+
+    for (final post in posts) {
+      final record = state.records[post.sourceId];
+      final publication = _resolvePublication(
+        post,
+        record: record,
+        state: state,
+        newMastodonIds: simulatedNewMastodonIds,
+        includeSourceLink: config.sync.includeSourceLink,
+        feedUrl: config.source.feedUrl,
+      );
+      final action = _candidateReason(record, publication.preparedPost);
+      final preview = previewMastodonStatus(publication.preparedPost, limits);
+      previews.add(
+        SyncPostPreview(
+          sourceId: post.sourceId,
+          action: action,
+          publicationMode: publication.effectiveMode,
+          text: preview.text,
+          characterCount: publication.effectiveMode == _boostMode
+              ? 0
+              : preview.characterCount,
+          maxCharacters: limits.maxCharacters,
+          deferred: publication.shouldDefer,
+        ),
+      );
+      if (record == null && !publication.shouldDefer) {
+        simulatedNewMastodonIds[post.sourceId] = 'preview-${post.sourceId}';
+      }
+    }
+
+    return SyncPreviewResult(limits: limits, posts: previews);
+  }
+
   List<String> _selectedMediaKeys(
     OrgSocialPost post,
   ) => OrgSocialPost.selectMediaCandidates(post.mediaCandidates)
@@ -271,6 +335,78 @@ class SyncService {
             '${candidate.kind.name}:${candidate.url}:${candidate.altText ?? ''}',
       )
       .toList(growable: false);
+
+  List<OrgSocialPost> _findCandidatePosts(
+    List<OrgSocialPost> posts, {
+    required SyncState existingState,
+    required bool includeSourceLink,
+    required Uri feedUrl,
+  }) => posts
+      .where((post) {
+        final record = existingState.records[post.sourceId];
+        if (record == null) return true;
+        final publication = _resolvePublication(
+          post,
+          record: record,
+          state: existingState,
+          newMastodonIds: const {},
+          includeSourceLink: includeSourceLink,
+          feedUrl: feedUrl,
+        );
+        return _candidateReason(record, publication.preparedPost) !=
+            'unchanged';
+      })
+      .toList(growable: false);
+
+  String _candidateReason(SyncRecord? record, OrgSocialPost preparedPost) {
+    if (record == null) return 'new';
+    if (record.contentHash != preparedPost.contentHash) return 'modified';
+    if (record.renderedHash != preparedPost.renderedHash) return 'rerendered';
+    return 'unchanged';
+  }
+
+  Future<void> _validateCandidateLengths(
+    List<OrgSocialPost> candidates, {
+    required SyncState existingState,
+    required AppConfig config,
+  }) async {
+    final limits = await mastodonClient.getInstanceLimits();
+    final simulatedNewMastodonIds = <String, String>{};
+    final violations = <String>[];
+
+    for (final post in candidates) {
+      final record = existingState.records[post.sourceId];
+      final publication = _resolvePublication(
+        post,
+        record: record,
+        state: existingState,
+        newMastodonIds: simulatedNewMastodonIds,
+        includeSourceLink: config.sync.includeSourceLink,
+        feedUrl: config.source.feedUrl,
+      );
+
+      if (publication.effectiveMode != _boostMode) {
+        final preview = previewMastodonStatus(publication.preparedPost, limits);
+        if (preview.exceedsLimit) {
+          violations.add(
+            '${post.sourceId}: ${preview.characterCount}/${limits.maxCharacters}\n'
+            '${preview.text}',
+          );
+        }
+      }
+
+      if (record == null && !publication.shouldDefer) {
+        simulatedNewMastodonIds[post.sourceId] = 'planned-${post.sourceId}';
+      }
+    }
+
+    if (violations.isNotEmpty) {
+      throw StateError(
+        'One or more posts exceed the Mastodon character limit for '
+        '${config.mastodon.baseUrl}:\n\n${violations.join('\n\n')}',
+      );
+    }
+  }
 
   OrgSocialPost _prepareStatus(
     OrgSocialPost post, {

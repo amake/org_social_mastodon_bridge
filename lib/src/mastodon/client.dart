@@ -1,4 +1,5 @@
 import '../org_social/post.dart';
+import 'status_logic.dart';
 
 final class MastodonPostResult {
   const MastodonPostResult({
@@ -13,6 +14,8 @@ final class MastodonPostResult {
 }
 
 abstract interface class MastodonClient {
+  Future<MastodonInstanceLimits> getInstanceLimits();
+
   Future<MastodonPostResult> postStatus(
     OrgSocialPost post, {
     String? inReplyToId,

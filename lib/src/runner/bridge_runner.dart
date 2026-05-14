@@ -35,4 +35,20 @@ class BridgeRunner {
     );
     return syncService.run(effectiveConfig);
   }
+
+  Future<SyncPreviewResult> preview({
+    String? configPath,
+    AppConfig? config,
+  }) async {
+    if (config == null && configPath == null) {
+      throw ArgumentError('Either config or configPath must be provided');
+    }
+    final effectiveConfig = config ?? await AppConfig.loadFile(configPath!);
+    final syncService = SyncService(
+      feedService: OrgSocialService(httpClient: _httpClient),
+      mastodonClient: GeneratedMastodonClient(effectiveConfig.mastodon),
+      stateStore: stateStoreFromConfig(effectiveConfig.state),
+    );
+    return syncService.preview(effectiveConfig);
+  }
 }

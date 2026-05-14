@@ -9,6 +9,7 @@ import '../config/config.dart';
 import '../logging/logging.dart';
 import '../org_social/post.dart';
 import 'client.dart';
+import 'status_logic.dart';
 
 class GeneratedMastodonClient implements MastodonClient {
   GeneratedMastodonClient(
@@ -51,27 +52,47 @@ class GeneratedMastodonClient implements MastodonClient {
   };
 
   @override
+  Future<MastodonInstanceLimits> getInstanceLimits() async {
+    logger.debug('Fetching Mastodon instance limits');
+    // Mastodon still exposes status limits on the v1 instance payload.
+    final response = await _wrapApiCall(
+      // ignore: deprecated_member_use
+      () => _api.getInstanceApi().getInstance(),
+    );
+    final instance = response.data;
+    if (instance == null) {
+      throw StateError('Mastodon instance lookup returned no data');
+    }
+    final statuses = instance.configuration.statuses;
+    return MastodonInstanceLimits(
+      maxCharacters: statuses.maxCharacters,
+      charactersReservedPerUrl: statuses.charactersReservedPerUrl,
+      maxMediaAttachments: statuses.maxMediaAttachments,
+    );
+  }
+
+  @override
   Future<MastodonPostResult> postStatus(
     OrgSocialPost post, {
     String? inReplyToId,
     String? quoteId,
   }) async {
     logger.debug('Creating Mastodon status for ${post.sourceId}');
+    final composed = composeMastodonStatus(post);
 
     final poll = post.poll;
     if (poll != null) {
-      final expiresIn = poll.endsAt.difference(DateTime.now()).inSeconds;
-      if (expiresIn <= 0) {
+      if (composed.pollExpired) {
         logger.warning(
           'Post ${post.sourceId} has an expired poll (endsAt=${poll.endsAt}). '
           'Falling back to text-only post.',
         );
-      } else if (poll.options.length > 4) {
+      } else if (composed.pollHasTooManyOptions) {
         logger.warning(
           'Post ${post.sourceId} has too many poll options (${poll.options.length}). '
           'Mastodon usually limits to 4. Falling back to text-only post.',
         );
-      } else {
+      } else if (composed.pollHandling == MastodonPollHandling.native) {
         if (post.mediaCandidates.isNotEmpty) {
           logger.warning(
             'Post ${post.sourceId} has both poll and media candidates. '
@@ -80,7 +101,8 @@ class GeneratedMastodonClient implements MastodonClient {
         }
         final request = _buildPollRequest(
           post,
-          expiresIn,
+          composed.text,
+          composed.pollExpiresInSeconds!,
           inReplyToId: inReplyToId,
           quoteId: quoteId,
         );
@@ -100,14 +122,14 @@ class GeneratedMastodonClient implements MastodonClient {
     final request = mediaIds.isEmpty
         ? _buildTextRequest(
             post,
-            appendPollOptions: poll != null,
+            statusText: composed.text,
             inReplyToId: inReplyToId,
             quoteId: quoteId,
           )
         : _buildMediaRequest(
             post,
             mediaIds,
-            appendPollOptions: poll != null,
+            statusText: composed.text,
             inReplyToId: inReplyToId,
             quoteId: quoteId,
           );
@@ -149,14 +171,16 @@ class GeneratedMastodonClient implements MastodonClient {
     List<String>? existingSelectedMedia,
   }) async {
     logger.debug('Updating Mastodon status $statusId for ${post.sourceId}');
+    final composed = composeMastodonStatus(post);
 
     final poll = post.poll;
-    if (poll != null) {
-      final expiresIn = poll.endsAt.difference(DateTime.now()).inSeconds;
-      if (expiresIn > 0 && poll.options.length <= 4) {
-        final request = _buildUpdatePollRequest(post, expiresIn);
-        return _sendUpdateRequest(statusId, post.sourceId, request);
-      }
+    if (poll != null && composed.pollHandling == MastodonPollHandling.native) {
+      final request = _buildUpdatePollRequest(
+        post,
+        composed.text,
+        composed.pollExpiresInSeconds!,
+      );
+      return _sendUpdateRequest(statusId, post.sourceId, request);
     }
 
     final selectedMedia = OrgSocialPost.selectMediaCandidates(
@@ -184,8 +208,8 @@ class GeneratedMastodonClient implements MastodonClient {
 
     final request = _buildUpdateRequest(
       post,
+      statusText: composed.text,
       mediaIds: mediaIds.isEmpty ? null : mediaIds,
-      appendPollOptions: poll != null,
     );
 
     return _sendUpdateRequest(statusId, post.sourceId, request);
@@ -277,6 +301,7 @@ class GeneratedMastodonClient implements MastodonClient {
 
   generated.CreateStatusRequest _buildPollRequest(
     OrgSocialPost post,
+    String statusText,
     int expiresIn, {
     String? inReplyToId,
     String? quoteId,
@@ -291,7 +316,7 @@ class GeneratedMastodonClient implements MastodonClient {
     final pollStatus = generated.PollStatus(
       (builder) => builder
         ..poll = pollParams.toBuilder()
-        ..status = _buildFinalStatusText(post)
+        ..status = statusText
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning
@@ -311,16 +336,13 @@ class GeneratedMastodonClient implements MastodonClient {
 
   generated.CreateStatusRequest _buildTextRequest(
     OrgSocialPost post, {
-    bool appendPollOptions = false,
+    required String statusText,
     String? inReplyToId,
     String? quoteId,
   }) {
     final textStatus = generated.TextStatus(
       (builder) => builder
-        ..status = _buildFinalStatusText(
-          post,
-          appendPollOptions: appendPollOptions,
-        )
+        ..status = statusText
         ..visibility = _visibilityFor(post)
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning
@@ -341,14 +363,10 @@ class GeneratedMastodonClient implements MastodonClient {
   generated.CreateStatusRequest _buildMediaRequest(
     OrgSocialPost post,
     List<String> mediaIds, {
-    bool appendPollOptions = false,
+    required String statusText,
     String? inReplyToId,
     String? quoteId,
   }) {
-    final statusText = _buildFinalStatusText(
-      post,
-      appendPollOptions: appendPollOptions,
-    );
     final mediaStatus = generated.MediaStatus(
       (builder) => builder
         ..mediaIds.addAll(mediaIds)
@@ -371,15 +389,12 @@ class GeneratedMastodonClient implements MastodonClient {
 
   generated.UpdateStatusRequest _buildUpdateRequest(
     OrgSocialPost post, {
+    required String statusText,
     List<String>? mediaIds,
-    bool appendPollOptions = false,
   }) {
     return generated.UpdateStatusRequest((builder) {
       builder
-        ..status = _buildFinalStatusText(
-          post,
-          appendPollOptions: appendPollOptions,
-        )
+        ..status = statusText
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning;
       if (mediaIds != null) {
@@ -390,6 +405,7 @@ class GeneratedMastodonClient implements MastodonClient {
 
   generated.UpdateStatusRequest _buildUpdatePollRequest(
     OrgSocialPost post,
+    String statusText,
     int expiresIn,
   ) {
     final poll = post.poll!;
@@ -402,34 +418,10 @@ class GeneratedMastodonClient implements MastodonClient {
     return generated.UpdateStatusRequest(
       (builder) => builder
         ..poll = pollParams.toBuilder()
-        ..status = _buildFinalStatusText(post)
+        ..status = statusText
         ..language = post.language ?? config.language
         ..spoilerText = post.contentWarning,
     );
-  }
-
-  String _buildFinalStatusText(
-    OrgSocialPost post, {
-    bool appendPollOptions = false,
-  }) {
-    final buffer = StringBuffer(post.text);
-
-    if (appendPollOptions && post.poll != null) {
-      if (buffer.isNotEmpty) buffer.write('\n\n');
-      buffer.write(post.poll!.options.map((o) => '- [ ] $o').join('\n'));
-    }
-
-    if (post.mood != null && post.mood!.isNotEmpty) {
-      if (buffer.isNotEmpty) buffer.write('\n\n');
-      buffer.write('Mood: ${post.mood}');
-    }
-
-    if (post.tags.isNotEmpty) {
-      if (buffer.isNotEmpty) buffer.write('\n\n');
-      buffer.write(post.tags.map((t) => '#$t').join(' '));
-    }
-
-    return buffer.toString();
   }
 
   MastodonPostResult _parsePostResult(

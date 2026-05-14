@@ -43,18 +43,27 @@ The important sections are:
 - `make analyze`
 - `make test`
 - `make run`
+- `make preview`
 - `make provision`
 - `make build`
 - `make deploy`
 - `make invoke`
 
 `make run` executes one sync pass against `config.json`.
+`make preview` renders each post as the bridge would send it to Mastodon,
+fetches the instance-specific character limits, and prints per-post counts
+before posting anything.
 `make provision` transitions from local to Lambda: it uploads your local state
 file to the S3 bucket configured in `remote_state` and pushes your full
 configuration to the Lambda's environment variables.
 
 `make run` sets `ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=debug` by default for
 verbose local runs.
+
+You can also run preview mode directly with:
+
+- `dart run bin/org_social_mastodon_bridge.dart --preview`
+- `dart run bin/org_social_mastodon_bridge.dart preview`
 
 `make auth` performs the Mastodon OAuth flow interactively. It will register an
 application if needed, print an authorization URL, prompt for the returned

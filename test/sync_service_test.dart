@@ -107,6 +107,58 @@ void main() {
     expect(stateStore.saveCalls, 0);
   });
 
+  test(
+    'fails before posting when a candidate exceeds server character limit',
+    () async {
+      final feedService = _FakeFeedService([
+        OrgSocialPost(
+          sourceId: 'too-long',
+          text: 'abcdefghij',
+          publishedAt: DateTime.utc(2025, 4, 28, 12),
+          headline: 'too-long',
+          orgMarkup: '* too-long',
+        ),
+      ]);
+      final mastodon = _FakeMastodonClient()
+        ..limits = const MastodonInstanceLimits(
+          maxCharacters: 5,
+          charactersReservedPerUrl: 23,
+          maxMediaAttachments: 4,
+        );
+      final stateStore = _MemoryStateStore(SyncState.empty());
+
+      final service = SyncService(
+        feedService: feedService,
+        mastodonClient: mastodon,
+        stateStore: stateStore,
+      );
+
+      await expectLater(
+        () => service.run(
+          AppConfig.fromJson({
+            'source': {'feed_url': 'https://example.com/social.org'},
+            'mastodon': {
+              'base_url': 'https://mastodon.social',
+              'access_token': 'token',
+            },
+            'sync': {'dry_run': false, 'max_posts_per_run': 10},
+            'state': {'type': 'file', 'path': 'state.json'},
+          }),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('too-long: 10/5'),
+          ),
+        ),
+      );
+
+      expect(mastodon.postedTexts, isEmpty);
+      expect(stateStore.saveCalls, 0);
+    },
+  );
+
   test('syncs posts with polls', () async {
     final poll = OrgSocialPoll(
       endsAt: DateTime.now().add(const Duration(days: 1)),
@@ -704,11 +756,19 @@ final class _FakeMastodonClient implements MastodonClient {
   final List<String?> quoteIds = [];
   final List<String> boostedStatusIds = [];
   final List<String> statusIds = [];
+  MastodonInstanceLimits limits = const MastodonInstanceLimits(
+    maxCharacters: 500,
+    charactersReservedPerUrl: 23,
+    maxMediaAttachments: 4,
+  );
 
   List<String> get postedTexts => postedPosts.map((p) => p.text).toList();
   int updateCalls = 0;
   int pinCalls = 0;
   int unpinCalls = 0;
+
+  @override
+  Future<MastodonInstanceLimits> getInstanceLimits() async => limits;
 
   @override
   Future<MastodonPostResult> postStatus(
@@ -730,7 +790,7 @@ final class _FakeMastodonClient implements MastodonClient {
     required String statusId,
   }) async {
     boostedStatusIds.add(statusId);
-    this.statusIds.add(statusId);
+    statusIds.add(statusId);
     return MastodonPostResult(statusId: statusId, url: null);
   }
 

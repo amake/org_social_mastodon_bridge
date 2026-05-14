@@ -46,6 +46,11 @@ run: ## Run one local sync pass
 	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
 		dart run bin/org_social_mastodon_bridge.dart $(config)
 
+.PHONY: preview
+preview: ## Preview rendered posts and Mastodon character counts
+	ORG_SOCIAL_MASTODON_BRIDGE_LOG_LEVEL=$(run_log_level) \
+		dart run bin/org_social_mastodon_bridge.dart --preview $(config)
+
 .PHONY: provision
 provision: ## Transition to Lambda: push state to S3 and config to envars
 	dart run bin/provision.dart $(config)
